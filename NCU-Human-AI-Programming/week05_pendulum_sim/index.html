@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="theme-color" content="#1a1a24">
-  <title>单摆模拟实验 | Week 05</title>
+  <title>双摆混沌模拟 | Week 05</title>
   <style>
     :root {
       color-scheme: dark;
@@ -46,7 +46,8 @@
     h1 { margin: 6px 0 0; font: 400 30px/1.15 Georgia, "Songti SC", serif; letter-spacing: 0; }
     .subheading { color: var(--muted); font-size: 11px; }
     .canvas-wrap { position: relative; overflow: hidden; height: min(64vh, 560px); min-height: 330px; border: 1px solid var(--line); background: #1d1d27; }
-    canvas { display: block; width: 100%; height: 100%; }
+    canvas { display: block; width: 100%; height: 100%; cursor: grab; touch-action: none; }
+    canvas.is-dragging { cursor: grabbing; }
     .scene-label { position: absolute; left: 17px; top: 15px; color: var(--soft); font: 9px var(--mono); pointer-events: none; }
     .scene-readout { position: absolute; right: 16px; top: 14px; display: flex; gap: 18px; color: var(--muted); font: 10px var(--mono); pointer-events: none; }
     .scene-readout b { color: var(--text); font-weight: 500; }
@@ -133,16 +134,16 @@
     <main>
       <section class="simulation" aria-labelledby="title">
         <div class="heading">
-          <div><div class="eyebrow">MECHANICS · 01</div><h1 id="title">单摆运动</h1></div>
-          <div class="subheading">非线性简谐运动模拟</div>
+          <div><div class="eyebrow">MECHANICS · 02</div><h1 id="title">双摆混沌</h1></div>
+          <div class="subheading">非线性耦合系统模拟</div>
         </div>
         <div class="canvas-wrap">
-          <canvas id="scene" aria-label="单摆物理模拟画布"></canvas>
-          <div class="scene-label">FIG 01 &nbsp; / &nbsp; PENDULUM</div>
-          <div class="scene-readout"><span>θ <b id="angleReadout">45.0°</b></span><span>ω <b id="omegaReadout">0.00</b></span></div>
+          <canvas id="scene" aria-label="可拖拽的双摆物理模拟画布"></canvas>
+          <div class="scene-label">FIG 02 &nbsp; / &nbsp; DOUBLE PENDULUM</div>
+          <div class="scene-readout"><span>θ₁ <b id="angleReadout">120.0°</b></span><span>θ₂ <b id="secondAngleReadout">-10.0°</b></span></div>
         </div>
         <div class="timeline"><div class="timeline-fill" id="timeline"></div></div>
-        <section class="parameter-panel" aria-label="单摆实时参数控制">
+        <section class="parameter-panel" aria-label="双摆实时参数控制">
           <div class="section-title"><span>实时参数</span><span>LIVE CONTROLS</span></div>
           <div class="parameter-grid">
             <div class="parameter">
@@ -167,7 +168,7 @@
             <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.2 8a6 6 0 1 1-.1 4M4 4.5V8h3.5" /></svg>
             <span>重置摆动</span>
           </button>
-          <span class="control-hint">重置后停在 45° 初态；点击播放继续，阻尼越大衰减越快</span>
+          <span class="control-hint">拖动任一摆球设定角度；阻尼为零时可观察混沌运动</span>
         </div>
       </section>
 
@@ -175,9 +176,9 @@
         <section class="side-section">
           <div class="section-title"><span>实时测量</span><span>OUTPUT</span></div>
           <div class="readouts">
-            <div class="metric"><small>周期 T</small><strong><span id="periodValue">2.13</span> <em>s</em></strong></div>
+            <div class="metric"><small>参考周期 T</small><strong><span id="periodValue">2.13</span> <em>s</em></strong></div>
             <div class="metric"><small>时间 t</small><strong><span id="timeValue">0.00</span> <em>s</em></strong></div>
-            <div class="metric"><small>角速度 ω</small><strong><span id="speedValue">0.00</span> <em>rad/s</em></strong></div>
+            <div class="metric"><small>角速度 |ω₁| + |ω₂|</small><strong><span id="speedValue">0.00</span> <em>rad/s</em></strong></div>
             <div class="metric"><small>总机械能 E</small><strong><span id="energyValue">0.00</span> <em>J/kg</em></strong></div>
           </div>
           <div class="energy-track" aria-label="动能占总机械能比例"><div class="energy-level" id="energyLevel"></div></div>
@@ -186,7 +187,7 @@
 
         <section class="side-section">
           <div class="section-title"><span>物理模型</span><span>MODEL</span></div>
-          <div class="model-note"><b>θ̈ = −(g / L) sin θ − 18cω</b><br>采用四阶 Runge–Kutta 数值积分。标定关系：200 px = 1 m；阻尼项使摆幅逐渐衰减。</div>
+          <div class="model-note"><b>双摆拉格朗日方程 · RK4</b><br>两杆等长、等质量；200 px = 1 m。拖动摆球可直接改变初始角，彩色轨迹随时间渐隐。</div>
         </section>
       </aside>
     </main>
@@ -207,7 +208,7 @@
       };
       const readouts = {
         angle: document.getElementById("angleReadout"),
-        omega: document.getElementById("omegaReadout"),
+        secondAngle: document.getElementById("secondAngleReadout"),
         length: document.getElementById("lengthValue"),
         gravity: document.getElementById("gravityValue"),
         damping: document.getElementById("dampingValue"),
@@ -223,9 +224,12 @@
       const toggleIcon = document.getElementById("toggleIcon");
       const fixedStep = 1 / 240;
       const pixelsPerMeter = 200;
-      const initialAngle = Math.PI / 4;
-      let theta = initialAngle;
-      let omega = 0;
+      const initialAngle1 = 2 * Math.PI / 3;
+      const initialAngle2 = -Math.PI / 18;
+      let theta1 = initialAngle1;
+      let omega1 = 0;
+      let theta2 = initialAngle2;
+      let omega2 = 0;
       let elapsed = 0;
       let accumulator = 0;
       let lastFrame = 0;
@@ -235,13 +239,14 @@
       let pixelRatio = 1;
       let trail = [];
       let trailClock = 0;
+      let drag = null;
 
       const lengthMeters = () => Number(controls.length.value) / pixelsPerMeter;
       const gravity = () => Number(controls.gravity.value);
       const dampingRate = () => 18 * Number(controls.damping.value);
-      const naturalFrequency = () => Math.sqrt(Math.max(gravity() / lengthMeters() - dampingRate() ** 2 / 4, 0.0001));
+      const naturalFrequency = () => Math.sqrt(Math.max((gravity() / lengthMeters()) * (2 - Math.sqrt(2)) - dampingRate() ** 2 / 4, 0.0001));
       const period = () => {
-        const k = Math.sin(initialAngle / 2);
+        const k = Math.sin(initialAngle1 / 2);
         let estimate = 2 * Math.PI / naturalFrequency();
         let term = 1;
         let sum = 1;
@@ -252,21 +257,41 @@
         return estimate * sum;
       };
 
-      function acceleration(angle) {
-        return -(gravity() / lengthMeters()) * Math.sin(angle) - dampingRate() * omega;
+      function derivative(state) {
+        const [angle1, velocity1, angle2, velocity2] = state;
+        const delta = angle1 - angle2;
+        const rodLength = lengthMeters();
+        const denominator = rodLength * (3 - Math.cos(2 * delta));
+        const angularAcceleration1 = (
+          -3 * gravity() * Math.sin(angle1)
+          - gravity() * Math.sin(angle1 - 2 * angle2)
+          - 2 * Math.sin(delta) * rodLength * (velocity2 * velocity2 + velocity1 * velocity1 * Math.cos(delta))
+        ) / denominator - dampingRate() * velocity1;
+        const angularAcceleration2 = (
+          2 * Math.sin(delta) * (
+            2 * rodLength * velocity1 * velocity1
+            + 2 * gravity() * Math.cos(angle1)
+            + rodLength * velocity2 * velocity2 * Math.cos(delta)
+          )
+        ) / denominator - dampingRate() * velocity2;
+        return [velocity1, angularAcceleration1, velocity2, angularAcceleration2];
+      }
+
+      function addScaled(state, derivativeState, scale) {
+        return state.map((value, index) => value + derivativeState[index] * scale);
       }
 
       function integrate(step) {
-        const k1Theta = omega;
-        const k1Omega = acceleration(theta);
-        const k2Theta = omega + k1Omega * step / 2;
-        const k2Omega = acceleration(theta + k1Theta * step / 2);
-        const k3Theta = omega + k2Omega * step / 2;
-        const k3Omega = acceleration(theta + k2Theta * step / 2);
-        const k4Theta = omega + k3Omega * step;
-        const k4Omega = acceleration(theta + k3Theta * step);
-        theta += step * (k1Theta + 2 * k2Theta + 2 * k3Theta + k4Theta) / 6;
-        omega += step * (k1Omega + 2 * k2Omega + 2 * k3Omega + k4Omega) / 6;
+        const state = [theta1, omega1, theta2, omega2];
+        const k1 = derivative(state);
+        const k2 = derivative(addScaled(state, k1, step / 2));
+        const k3 = derivative(addScaled(state, k2, step / 2));
+        const k4 = derivative(addScaled(state, k3, step));
+        const nextState = state.map((value, index) => value + step * (k1[index] + 2 * k2[index] + 2 * k3[index] + k4[index]) / 6);
+        theta1 = Math.atan2(Math.sin(nextState[0]), Math.cos(nextState[0]));
+        omega1 = nextState[1];
+        theta2 = Math.atan2(Math.sin(nextState[2]), Math.cos(nextState[2]));
+        omega2 = nextState[3];
       }
 
       function resize() {
@@ -280,16 +305,24 @@
         draw();
       }
 
+      function getGeometry() {
+        const centerX = width / 2;
+        const pivotY = Math.max(76, height * 0.2);
+        const horizontalLimit = Math.max(24, (width / 2 - 30) / 2);
+        const verticalLimit = Math.max(24, (height - pivotY - 34) / 2);
+        const visualLength = Math.min(Number(controls.length.value), horizontalLimit, verticalLimit);
+        const firstX = centerX + visualLength * Math.sin(theta1);
+        const firstY = pivotY + visualLength * Math.cos(theta1);
+        const secondX = firstX + visualLength * Math.sin(theta2);
+        const secondY = firstY + visualLength * Math.cos(theta2);
+        return { centerX, pivotY, visualLength, firstX, firstY, secondX, secondY };
+      }
+
       function draw() {
         if (!width || !height) return;
         context.clearRect(0, 0, width, height);
 
-        const centerX = width / 2;
-        const pivotY = Math.max(76, height * 0.22);
-        const horizontalLimit = (width / 2 - 24) / Math.max(Math.sin(initialAngle), 0.2);
-        const visualLength = Math.min(Number(controls.length.value), height - pivotY - 66, horizontalLimit);
-        const bobX = centerX + visualLength * Math.sin(theta);
-        const bobY = pivotY + visualLength * Math.cos(theta);
+        const { centerX, pivotY, firstX, firstY, secondX, secondY } = getGeometry();
 
         context.save();
         context.strokeStyle = "rgba(210, 207, 220, 0.055)";
@@ -302,67 +335,148 @@
           context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
         }
 
-        context.setLineDash([3, 6]);
-        context.strokeStyle = "rgba(240, 182, 108, 0.24)";
-        context.beginPath();
-        context.moveTo(centerX, pivotY);
-        context.lineTo(centerX + visualLength * Math.sin(initialAngle), pivotY + visualLength * Math.cos(initialAngle));
-        context.moveTo(centerX, pivotY);
-        context.lineTo(centerX - visualLength * Math.sin(initialAngle), pivotY + visualLength * Math.cos(initialAngle));
-        context.stroke();
-        context.setLineDash([]);
-
-        if (trail.length > 1) {
+        const trailLifetime = 5;
+        for (let index = 1; index < trail.length; index += 1) {
+          const point = trail[index];
+          const previous = trail[index - 1];
+          const age = elapsed - point.time;
+          const opacity = Math.max(0, 1 - age / trailLifetime);
+          if (opacity <= 0) continue;
           context.beginPath();
-          trail.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
-          context.strokeStyle = "rgba(139, 213, 187, 0.36)";
-          context.lineWidth = 1.5;
+          context.moveTo(previous.x, previous.y);
+          context.lineTo(point.x, point.y);
+          context.strokeStyle = `hsl(${point.hue} 92% 68%)`;
+          context.globalAlpha = opacity * 0.72;
+          context.lineWidth = 1.2 + opacity * 1.1;
+          context.shadowColor = `hsla(${point.hue} 92% 68% / ${opacity * 0.8})`;
+          context.shadowBlur = 8 * opacity;
           context.stroke();
         }
+        context.globalAlpha = 1;
+        context.shadowBlur = 0;
 
-        context.strokeStyle = "rgba(242, 239, 232, 0.88)";
+        context.strokeStyle = "rgba(242, 239, 232, 0.82)";
         context.lineWidth = 1.6;
-        context.beginPath(); context.moveTo(centerX, pivotY); context.lineTo(bobX, bobY); context.stroke();
+        context.beginPath();
+        context.moveTo(centerX, pivotY);
+        context.lineTo(firstX, firstY);
+        context.lineTo(secondX, secondY);
+        context.stroke();
 
         context.fillStyle = "#b6b1ac";
         context.beginPath(); context.arc(centerX, pivotY, 4, 0, Math.PI * 2); context.fill();
         context.strokeStyle = "rgba(242, 239, 232, 0.12)";
         context.beginPath(); context.arc(centerX, pivotY, 9, 0, Math.PI * 2); context.stroke();
 
-        const bobRadius = Math.max(10, Math.min(15, width * 0.025));
-        const glow = context.createRadialGradient(bobX, bobY, 1, bobX, bobY, bobRadius * 3.4);
-        glow.addColorStop(0, "rgba(240, 182, 108, 0.28)");
-        glow.addColorStop(1, "rgba(240, 182, 108, 0)");
-        context.fillStyle = glow;
-        context.beginPath(); context.arc(bobX, bobY, bobRadius * 3.4, 0, Math.PI * 2); context.fill();
+        const bobRadius = Math.max(9, Math.min(14, width * 0.022));
+        [[firstX, firstY, "#f0b66c"], [secondX, secondY, "#80d9d0"]].forEach(([bobX, bobY, color]) => {
+          const glow = context.createRadialGradient(bobX, bobY, 1, bobX, bobY, bobRadius * 3.5);
+          glow.addColorStop(0, color === "#f0b66c" ? "rgba(240, 182, 108, 0.32)" : "rgba(92, 225, 220, 0.34)");
+          glow.addColorStop(1, "rgba(92, 225, 220, 0)");
+          context.fillStyle = glow;
+          context.beginPath(); context.arc(bobX, bobY, bobRadius * 3.5, 0, Math.PI * 2); context.fill();
+          const ball = context.createRadialGradient(bobX - bobRadius * 0.32, bobY - bobRadius * 0.38, 1, bobX, bobY, bobRadius);
+          ball.addColorStop(0, "#fff4dc");
+          ball.addColorStop(0.44, color);
+          ball.addColorStop(1, color === "#f0b66c" ? "#a86d39" : "#287d86");
+          context.fillStyle = ball;
+          context.beginPath(); context.arc(bobX, bobY, bobRadius, 0, Math.PI * 2); context.fill();
+        });
 
-        const ball = context.createRadialGradient(bobX - bobRadius * 0.32, bobY - bobRadius * 0.38, 1, bobX, bobY, bobRadius);
-        ball.addColorStop(0, "#ffe0ad");
-        ball.addColorStop(0.44, "#f0b66c");
-        ball.addColorStop(1, "#a86d39");
-        context.fillStyle = ball;
-        context.beginPath(); context.arc(bobX, bobY, bobRadius, 0, Math.PI * 2); context.fill();
-
-        context.fillStyle = "rgba(242, 239, 232, 0.54)";
-        context.font = "10px Cascadia Code, Consolas, monospace";
-        context.fillText("L", centerX + (bobX - centerX) * 0.52 + 7, pivotY + (bobY - pivotY) * 0.52);
         context.restore();
+      }
+
+      function pointerPosition(event) {
+        let bounds = canvas.getBoundingClientRect();
+        if (Math.abs(width - bounds.width) > 0.5 || Math.abs(height - bounds.height) > 0.5) {
+          resize();
+          bounds = canvas.getBoundingClientRect();
+        }
+        return {
+          x: (event.clientX - bounds.left) * width / bounds.width,
+          y: (event.clientY - bounds.top) * height / bounds.height
+        };
+      }
+
+      function setDraggedAngle(position, timestamp) {
+        const geometry = getGeometry();
+        const origin = drag.bob === 1
+          ? { x: geometry.centerX, y: geometry.pivotY }
+          : { x: geometry.firstX, y: geometry.firstY };
+        const angle = Math.atan2(position.x - origin.x, position.y - origin.y);
+        const delta = Math.atan2(Math.sin(angle - drag.lastAngle), Math.cos(angle - drag.lastAngle));
+        const deltaTime = Math.max((timestamp - drag.lastTime) / 1000, 1 / 120);
+        const releaseVelocity = Math.max(-10, Math.min(10, delta / deltaTime));
+        if (drag.bob === 1) {
+          theta1 = angle;
+          omega1 = releaseVelocity;
+        } else {
+          theta2 = angle;
+          omega2 = releaseVelocity;
+        }
+        drag.lastAngle = angle;
+        drag.lastTime = timestamp;
+        trail = [];
+        trailClock = 0;
+        draw();
+        updateReadouts();
+      }
+
+      function beginDrag(event) {
+        if (event.button !== undefined && event.button !== 0) return;
+        const position = pointerPosition(event);
+        const geometry = getGeometry();
+        const firstDistance = Math.hypot(position.x - geometry.firstX, position.y - geometry.firstY);
+        const secondDistance = Math.hypot(position.x - geometry.secondX, position.y - geometry.secondY);
+        const hitRadius = Math.max(22, width * 0.025);
+        if (Math.min(firstDistance, secondDistance) > hitRadius) return;
+        const bob = firstDistance < secondDistance ? 1 : 2;
+        drag = {
+          bob,
+          pointerId: event.pointerId,
+          wasRunning: running,
+          lastAngle: bob === 1 ? theta1 : theta2,
+          lastTime: event.timeStamp
+        };
+        setRunning(false);
+        trail = [];
+        canvas.classList.add("is-dragging");
+        canvas.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      }
+
+      function moveDrag(event) {
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        setDraggedAngle(pointerPosition(event), event.timeStamp);
+        event.preventDefault();
+      }
+
+      function endDrag(event) {
+        if (!drag || event.pointerId !== drag.pointerId) return;
+        const resume = drag.wasRunning;
+        drag = null;
+        canvas.classList.remove("is-dragging");
+        if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
+        setRunning(resume);
       }
 
       function updateReadouts() {
         const currentLength = lengthMeters();
-        const potential = gravity() * currentLength * (1 - Math.cos(theta));
-        const kinetic = 0.5 * currentLength * currentLength * omega * omega;
+        const angleDifference = theta1 - theta2;
+        const potential = gravity() * currentLength * (3 - 2 * Math.cos(theta1) - Math.cos(theta2));
+        const kinetic = 0.5 * currentLength * currentLength * (
+          2 * omega1 * omega1 + omega2 * omega2 + 2 * omega1 * omega2 * Math.cos(angleDifference)
+        );
         const total = potential + kinetic;
         const kineticRatio = total > 0 ? kinetic / total : 0;
-        readouts.angle.textContent = `${(theta * 180 / Math.PI).toFixed(1)}°`;
-        readouts.omega.textContent = omega.toFixed(2);
+        readouts.angle.textContent = `${(theta1 * 180 / Math.PI).toFixed(1)}°`;
+        readouts.secondAngle.textContent = `${(theta2 * 180 / Math.PI).toFixed(1)}°`;
         readouts.length.textContent = controls.length.value;
         readouts.gravity.textContent = Number(controls.gravity.value).toFixed(1);
         readouts.damping.textContent = Number(controls.damping.value).toFixed(3);
         readouts.period.textContent = period().toFixed(2);
         readouts.time.textContent = elapsed.toFixed(2);
-        readouts.speed.textContent = omega.toFixed(2);
+        readouts.speed.textContent = (Math.abs(omega1) + Math.abs(omega2)).toFixed(2);
         readouts.energy.textContent = total.toFixed(3);
         readouts.energyLevel.style.width = `${(kineticRatio * 100).toFixed(1)}%`;
         readouts.timeline.style.width = `${((elapsed % period()) / period() * 100).toFixed(2)}%`;
@@ -376,14 +490,16 @@
           accumulator += frameTime;
           while (accumulator >= fixedStep) {
             integrate(fixedStep);
+            if (![theta1, omega1, theta2, omega2].every(Number.isFinite)) {
+              reset();
+              break;
+            }
             elapsed += fixedStep;
             trailClock += fixedStep;
             if (trailClock >= 0.025) {
-              trail.push({
-                x: width / 2 + Math.min(Number(controls.length.value), height - Math.max(76, height * 0.22) - 66) * Math.sin(theta),
-                y: Math.max(76, height * 0.22) + Math.min(Number(controls.length.value), height - Math.max(76, height * 0.22) - 66) * Math.cos(theta)
-              });
-              if (trail.length > 100) trail.shift();
+              const geometry = getGeometry();
+              trail.push({ x: geometry.secondX, y: geometry.secondY, time: elapsed, hue: (elapsed * 78 + 170) % 360 });
+              while (trail.length > 480 || (trail.length && elapsed - trail[0].time > 5)) trail.shift();
               trailClock = 0;
             }
             accumulator -= fixedStep;
@@ -395,8 +511,10 @@
       }
 
       function reset() {
-        theta = initialAngle;
-        omega = 0;
+        theta1 = initialAngle1;
+        omega1 = 0;
+        theta2 = initialAngle2;
+        omega2 = 0;
         elapsed = 0;
         accumulator = 0;
         lastFrame = 0;
@@ -422,9 +540,21 @@
         updateReadouts();
         draw();
       }));
+      canvas.addEventListener("pointerdown", beginDrag);
+      canvas.addEventListener("pointermove", moveDrag);
+      canvas.addEventListener("pointerup", endDrag);
+      canvas.addEventListener("pointercancel", endDrag);
       toggleButton.addEventListener("click", () => setRunning(!running));
       document.getElementById("resetButton").addEventListener("click", reset);
       window.addEventListener("resize", resize);
+      document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "visible") {
+          resize();
+          accumulator = 0;
+          lastFrame = 0;
+        }
+      });
+      new ResizeObserver(resize).observe(canvas.parentElement);
       resize();
       updateReadouts();
       requestAnimationFrame(frame);
