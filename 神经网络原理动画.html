@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神经网络原理讲解动画</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --blue: #58a6ff;
+    --green: #3fb950;
+    --orange: #f0883e;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --yellow: #d29922;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    overflow-x: hidden;
+  }
+  header {
+    text-align: center;
+    padding: 24px 16px 8px;
+  }
+  header h1 {
+    font-size: 28px;
+    letter-spacing: 1px;
+    background: linear-gradient(90deg, var(--blue), var(--purple), var(--orange));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header p { color: var(--muted); margin-top: 6px; font-size: 14px; }
+  .controls {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    padding: 12px;
+    background: rgba(13,17,23,0.9);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+    flex-wrap: wrap;
+  }
+  .controls button {
+    background: var(--panel);
+    color: var(--text);
+    border: 1px solid var(--border);
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all .2s;
+  }
+  .controls button:hover { border-color: var(--blue); color: var(--blue); }
+  .controls button.active { background: var(--blue); color: #fff; border-color: var(--blue); }
+  section {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 24px 16px;
+  }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 24px;
+    margin-bottom: 32px;
+  }
+  .card h2 {
+    font-size: 20px;
+    margin-bottom: 8px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .card h2 .step {
+    background: var(--blue);
+    color: #fff;
+    width: 28px; height: 28px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+  }
+  .card .desc { color: var(--muted); margin-bottom: 16px; line-height: 1.7; }
+  .card .formula {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 12px 16px;
+    font-family: "Consolas", "Courier New", monospace;
+    text-align: center;
+    color: var(--yellow);
+    margin: 12px 0;
+    font-size: 16px;
+  }
+  canvas { display: block; margin: 0 auto; border-radius: 8px; }
+  .legend {
+    display: flex;
+    gap: 16px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 13px;
+    color: var(--muted);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+  .slider-wrap { margin: 16px 0; }
+  .slider-wrap label { display: block; color: var(--muted); font-size: 13px; margin-bottom: 6px; }
+  input[type=range] { width: 100%; accent-color: var(--blue); }
+  .hl { color: var(--blue); font-weight: 600; }
+  .hg { color: var(--green); }
+  .ho { color: var(--orange); }
+  .hr { color: var(--red); }
+  .hp { color: var(--purple); }
+</style>
+</head>
+<body>
+<header>
+  <h1>神经网络原理 · 交互式动画讲解</h1>
+  <p>从单个神经元 → 前向传播 → 激活函数 → 反向传播</p>
+</header>
+
+<div class="controls">
+  <button class="active" onclick="show('neuron')">① 神经元</button>
+  <button onclick="show('forward')">② 前向传播</button>
+  <button onclick="show('activation')">③ 激活函数</button>
+  <button onclick="show('backprop')">④ 反向传播</button>
+</div>
+
+<!-- ① 神经元 -->
+<section id="neuron">
+  <div class="card">
+    <h2><span class="step">1</span> 单个神经元</h2>
+    <div class="desc">
+      神经元是神经网络的基本单元，它接收多个输入 <span class="hl">x₁, x₂, x₃</span>，
+      每个输入有对应的权重 <span class="ho">w₁, w₂, w₃</span>。
+      神经元先做<b>加权求和</b>，再加上偏置 <span class="hp">b</span>，得到 <span class="hg">z</span>。
+    </div>
+    <div class="formula">z = w₁·x₁ + w₂·x₂ + w₃·x₃ + b</div>
+    <canvas id="cvNeuron" width="900" height="360"></canvas>
+    <div class="legend">
+      <span><span class="dot" style="background:#58a6ff"></span>输入</span>
+      <span><span class="dot" style="background:#f0883e"></span>权重</span>
+      <span><span class="dot" style="background:#bc8cff"></span>偏置</span>
+      <span><span class="dot" style="background:#3fb950"></span>加权和 z</span>
+    </div>
+  </div>
+</section>
+
+<!-- ② 前向传播 -->
+<section id="forward" style="display:none">
+  <div class="card">
+    <h2><span class="step">2</span> 前向传播（多层网络）</h2>
+    <div class="desc">
+      数据从<b>输入层</b>经过<b>隐藏层</b>流向<b>输出层</b>，每一层都在计算
+      <span class="hl">加权求和</span> 并经过 <span class="ho">激活函数</span>。
+      这个从左到右计算预测结果的过程，就叫<b>前向传播</b>。
+    </div>
+    <div class="formula">a⁽ˡ⁾ = σ( W⁽ˡ⁾ · a⁽ˡ⁻¹⁾ + b⁽ˡ⁾ )</div>
+    <canvas id="cvForward" width="900" height="460"></canvas>
+    <div class="legend">
+      <span><span class="dot" style="background:#58a6ff"></span>输入层</span>
+      <span><span class="dot" style="background:#bc8cff"></span>隐藏层</span>
+      <span><span class="dot" style="background:#f0883e"></span>输出层</span>
+      <span><span class="dot" style="background:#3fb950"></span>信号流动</span>
+    </div>
+  </div>
+</section>
+
+<!-- ③ 激活函数 -->
+<section id="activation" style="display:none">
+  <div class="card">
+    <h2><span class="step">3</span> 激活函数</h2>
+    <div class="desc">
+      没有激活函数，多层网络只是<b>线性组合</b>，无法拟合复杂问题。
+      激活函数引入<b>非线性</b>。这里展示了最常用的几种，拖动滑块观察输出变化。
+    </div>
+    <div class="formula">sigmoid(x) = 1 / (1 + e⁻ˣ)　　ReLU(x) = max(0, x)　　tanh(x)</div>
+    <canvas id="cvAct" width="900" height="420"></canvas>
+    <div class="slider-wrap">
+      <label>输入值 x = <span id="actXVal" class="hl">0.0</span></label>
+      <input type="range" id="actX" min="-8" max="8" step="0.1" value="0">
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#58a6ff"></span>Sigmoid</span>
+      <span><span class="dot" style="background:#3fb950"></span>ReLU</span>
+      <span><span class="dot" style="background:#f0883e"></span>Tanh</span>
+    </div>
+  </div>
+</section>
+
+<!-- ④ 反向传播 -->
+<section id="backprop" style="display:none">
+  <div class="card">
+    <h2><span class="step">4</span> 反向传播（学习）</h2>
+    <div class="desc">
+      计算预测值和真实值之间的<b>误差（损失）</b>，然后用<b>梯度下降</b>
+      把误差从输出层<b>反向</b>传播回各层，更新每个权重，让损失不断下降。
+      下方动画演示了一条直线拟合散点数据的过程。
+    </div>
+    <div class="formula">w ← w − η · ∂L/∂w　　（η 为学习率）</div>
+    <canvas id="cvBackprop" width="900" height="420"></canvas>
+    <div class="slider-wrap">
+      <label>学习率 η = <span id="lrVal" class="ho">0.10</span></label>
+      <input type="range" id="lr" min="0.01" max="0.5" step="0.01" value="0.1">
+      <button onclick="resetFit()" style="margin-left:12px;background:var(--panel);color:var(--text);border:1px solid var(--border);padding:6px 14px;border-radius:8px;cursor:pointer;">重新开始</button>
+    </div>
+    <div class="legend">
+      <span><span class="dot" style="background:#f85149"></span>数据点</span>
+      <span><span class="dot" style="background:#58a6ff"></span>拟合直线</span>
+      <span><span class="dot" style="background:#d29922"></span>损失 Loss</span>
+    </div>
+  </div>
+</section>
+
+<script>
+/* ---------- 工具 ---------- */
+function sigmoid(x) { return 1 / (1 + Math.exp(-x)); }
+function relu(x) { return Math.max(0, x); }
+function tanh(x) { return Math.tanh(x); }
+
+function show(id) {
+  ['neuron','forward','activation','backprop'].forEach(k => {
+    document.getElementById(k).style.display = (k === id) ? '' : 'none';
+  });
+  document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  if (id === 'forward') startForward();
+  if (id === 'backprop') startBackprop();
+}
+
+/* ---------- ① 神经元动画 ---------- */
+const cvN = document.getElementById('cvNeuron');
+const ctxN = cvN.getContext('2d');
+function drawNeuron(t) {
+  ctxN.clearRect(0,0,cvN.width,cvN.height);
+  const cx = 480, cy = 180;
+  const inputs = [
+    {x:140,y:90, v:Math.sin(t*0.001)*0.8+0.2, w:0.7},
+    {x:140,y:180,v:Math.cos(t*0.0013)*0.8+0.3, w:-0.5},
+    {x:140,y:270,v:Math.sin(t*0.0007+2)*0.8+0.4, w:0.9},
+  ];
+  // 权重连线（粗细/颜色表示权重）
+  inputs.forEach((inp,i) => {
+    const w = inp.w;
+    const alpha = Math.abs(w);
+    ctxN.beginPath();
+    ctxN.moveTo(inp.x, inp.y);
+    ctxN.lineTo(cx, cy);
+    ctxN.strokeStyle = w > 0 ? `rgba(240,136,62,${0.2+alpha*0.7})` : `rgba(88,166,255,${0.2+alpha*0.7})`;
+    ctxN.lineWidth = 2 + alpha*4;
+    ctxN.stroke();
+    // 脉冲
+    const px = inp.x + (cx-inp.x)*((t*0.002 + i*0.33) % 1);
+    const py = inp.y + (cy-inp.y)*((t*0.002 + i*0.33) % 1);
+    ctxN.beginPath(); ctxN.arc(px,py,5,0,Math.PI*2);
+    ctxN.fillStyle = '#3fb950'; ctxN.fill();
+    // 标签
+    ctxN.fillStyle = '#e6edf3'; ctxN.font = '14px Consolas';
+    ctxN.fillText('x'+(i+1), inp.x+12, inp.y-18);
+    ctxN.fillStyle = '#f0883e'; ctxN.font = '12px Consolas';
+    ctxN.fillText('w'+(i+1)+'='+w.toFixed(1), (inp.x+cx)/2-10, (inp.y+cy)/2-8);
+  });
+  // 偏置
+  ctxN.beginPath(); ctxN.moveTo(cx-40, 320); ctxN.lineTo(cx, cy);
+  ctxN.strokeStyle = '#bc8cff'; ctxN.lineWidth = 2; ctxN.setLineDash([5,4]); ctxN.stroke();
+  ctxN.setLineDash([]);
+  ctxN.fillStyle = '#bc8cff'; ctxN.font = '14px Consolas';
+  ctxN.fillText('b = 0.3', cx-80, 340);
+  // 输入节点
+  inputs.forEach(inp => {
+    ctxN.beginPath(); ctxN.arc(inp.x,inp.y,18,0,Math.PI*2);
+    ctxN.fillStyle = '#58a6ff'; ctxN.fill();
+    ctxN.fillStyle = '#fff'; ctxN.font = '13px Consolas';
+    ctxN.fillText(inp.v.toFixed(1), inp.x-14, inp.y+5);
+  });
+  // 神经元
+  const g = ctxN.createRadialGradient(cx,cy,5,cx,cy,40);
+  g.addColorStop(0,'#3fb950'); g.addColorStop(1,'#1a7f37');
+  ctxN.beginPath(); ctxN.arc(cx,cy,36,0,Math.PI*2); ctxN.fillStyle = g; ctxN.fill();
+  ctxN.strokeStyle = '#3fb950'; ctxN.lineWidth = 2; ctxN.stroke();
+  // 计算 z
+  let z = 0; inputs.forEach(inp => z += inp.v*inp.w); z += 0.3;
+  ctxN.fillStyle = '#fff'; ctxN.font = 'bold 14px Consolas';
+  ctxN.fillText('Σ', cx-8, cy+5);
+  ctxN.fillStyle = '#3fb950'; ctxN.font = '15px Consolas';
+  ctxN.fillText('z = '+z.toFixed(2), cx+55, cy-20);
+  ctxN.fillStyle = '#e6edf3'; ctxN.font = '13px Consolas';
+  ctxN.fillText('z = w·x + b', cx+55, cy);
+}
+
+/* ---------- ② 前向传播动画 ---------- */
+const cvF = document.getElementById('cvForward');
+const ctxF = cvF.getContext('2d');
+const layers = [
+  {x:140, nodes:[0,1,2]},
+  {x:360, nodes:[0,1,2,3]},
+  {x:580, nodes:[0,1,2,3]},
+  {x:780, nodes:[0,1]},
+];
+const colors = ['#58a6ff','#bc8cff','#bc8cff','#f0883e'];
+let fwdStart = 0;
+function startForward() { fwdStart = performance.now(); }
+function drawForward() {
+  const t = performance.now() - fwdStart;
+  ctxF.clearRect(0,0,cvF.width,cvF.height);
+  const yFor = (layerIdx, i) => {
+    const n = layers[layerIdx].nodes.length;
+    return 60 + i * (340 / (n - 1 || 1));
+  };
+  // 连线
+  for (let l=0; l<layers.length-1; l++) {
+    for (let i=0;i<layers[l].nodes.length;i++) {
+      for (let j=0;j<layers[l+1].nodes.length;j++) {
+        const y1 = yFor(l,i), y2 = yFor(l+1,j);
+        ctxF.beginPath();
+        ctxF.moveTo(layers[l].x, y1);
+        ctxF.lineTo(layers[l+1].x, y2);
+        ctxF.strokeStyle = 'rgba(88,166,255,0.25)';
+        ctxF.lineWidth = 1.5;
+        ctxF.stroke();
+      }
+    }
+  }
+  // 脉冲信号（随时间从左到右传播）
+  for (let l=0; l<layers.length-1; l++) {
+    for (let i=0;i<layers[l].nodes.length;i++) {
+      for (let j=0;j<layers[l+1].nodes.length;j++) {
+        const prog = ((t*0.0012 - l*0.7) % 1 + 1) % 1;
+        if (prog > 0.05 && prog < 0.95) {
+          const x1 = layers[l].x, y1 = yFor(l,i);
+          const x2 = layers[l+1].x, y2 = yFor(l+1,j);
+          const px = x1 + (x2-x1)*prog, py = y1 + (y2-y1)*prog;
+          ctxF.beginPath(); ctxF.arc(px,py,4,0,Math.PI*2);
+          ctxF.fillStyle = '#3fb950'; ctxF.fill();
+        }
+      }
+    }
+  }
+  // 节点
+  layers.forEach((layer, li) => {
+    layer.nodes.forEach(i => {
+      const y = yFor(li,i);
+      const pulse = 1 + Math.sin(t*0.005 + li + i)*0.15;
+      ctxF.beginPath();
+      ctxF.arc(layer.x, y, 20*pulse, 0, Math.PI*2);
+      ctxF.fillStyle = colors[li]; ctxF.fill();
+      ctxF.strokeStyle = colors[li]; ctxF.lineWidth=2; ctxF.stroke();
+    });
+  });
+  // 标签
+  ctxF.fillStyle = '#e6edf3'; ctxF.font = '15px "Microsoft YaHei"';
+  ctxF.fillText('输入层', layers[0].x-28, 420);
+  ctxF.fillText('隐藏层 1', layers[1].x-38, 420);
+  ctxF.fillText('隐藏层 2', layers[2].x-38, 420);
+  ctxF.fillText('输出层', layers[3].x-28, 420);
+  requestAnimationFrame(drawForward);
+}
+
+/* ---------- ③ 激活函数 ---------- */
+const cvA = document.getElementById('cvAct');
+const ctxA = cvA.getContext('2d');
+const actX = document.getElementById('actX');
+const actXVal = document.getElementById('actXVal');
+function drawActivation() {
+  const xv = parseFloat(actX.value);
+  actXVal.textContent = xv.toFixed(1);
+  ctxA.clearRect(0,0,cvA.width,cvA.height);
+  const ox = 450, oy = 210, scale = 46;
+  // 坐标轴
+  ctxA.strokeStyle = '#30363d'; ctxA.lineWidth = 1;
+  ctxA.beginPath(); ctxA.moveTo(0,oy); ctxA.lineTo(cvA.width,oy); ctxA.stroke();
+  ctxA.beginPath(); ctxA.moveTo(ox,0); ctxA.lineTo(ox,cvA.height); ctxA.stroke();
+  ctxA.fillStyle = '#8b949e'; ctxA.font = '12px Consolas';
+  ctxA.fillText('x', cvA.width-15, oy-8);
+  ctxA.fillText('y', ox+8, 15);
+  function plot(fn, color, label) {
+    ctxA.beginPath();
+    for (let px=-9; px<=9; px+=0.05) {
+      const sx = ox + px*scale;
+      const sy = oy - fn(px)*scale;
+      if (px === -9) ctxA.moveTo(sx,sy); else ctxA.lineTo(sx,sy);
+    }
+    ctxA.strokeStyle = color; ctxA.lineWidth = 3; ctxA.stroke();
+    // 标签
+    const lx = ox + label.x*scale, ly = oy - fn(label.x)*scale;
+    ctxA.fillStyle = color; ctxA.font = 'bold 14px Consolas';
+    ctxA.fillText(label.text, lx+8, ly-8);
+  }
+  plot(sigmoid, '#58a6ff', {x:3.2, text:'sigmoid'});
+  plot(relu, '#3fb950', {x:-4.5, text:'relu'});
+  plot(tanh, '#f0883e', {x:-6, text:'tanh'});
+  // 当前点
+  const pts = [
+    {fn:sigmoid, color:'#58a6ff'},
+    {fn:relu, color:'#3fb950'},
+    {fn:tanh, color:'#f0883e'},
+  ];
+  pts.forEach(p => {
+    const sx = ox + xv*scale, sy = oy - p.fn(xv)*scale;
+    ctxA.beginPath(); ctxA.arc(sx,sy,7,0,Math.PI*2);
+    ctxA.fillStyle = p.color; ctxA.fill();
+    ctxA.strokeStyle = '#fff'; ctxA.lineWidth=2; ctxA.stroke();
+  });
+}
+actX.addEventListener('input', drawActivation);
+
+/* ---------- ④ 反向传播 / 梯度下降拟合 ---------- */
+const cvB = document.getElementById('cvBackprop');
+const ctxB = cvB.getContext('2d');
+const lr = document.getElementById('lr');
+const lrVal = document.getElementById('lrVal');
+lr.addEventListener('input', () => { lrVal.textContent = parseFloat(lr.value).toFixed(2); });
+
+const data = [];
+for (let i=0;i<30;i++) {
+  const x = Math.random()*2-1;
+  const y = 3*x + 1 + (Math.random()*2-1)*0.8;
+  data.push({x,y});
+}
+let w = 0, b = 0;
+let fitStart = 0;
+let lossHistory = [];
+let running = false;
+function resetFit() { w = Math.random()*2; b = Math.random()*2; lossHistory = []; fitStart = performance.now(); running = true; }
+function startBackprop() { if (!running) resetFit(); }
+function drawBackprop() {
+  if (running) {
+    const lrv = parseFloat(lr.value);
+    // 一次梯度下降
+    let dw = 0, db = 0;
+    data.forEach(d => {
+      const pred = w*d.x + b;
+      const err = pred - d.y;
+      dw += err*d.x; db += err;
+    });
+    const n = data.length;
+    w -= lrv * dw / n;
+    b -= lrv * db / n;
+    const loss = data.reduce((s,d) => s + (w*d.x+b-d.y)**2, 0) / n;
+    lossHistory.push(loss);
+    if (lossHistory.length > 120) lossHistory.shift();
+    if (loss < 0.05) running = false;
+  }
+  ctxB.clearRect(0,0,cvB.width,cvB.height);
+  // 数据点
+  data.forEach(d => {
+    const sx = 150 + (d.x+1)*300;
+    const sy = 200 - d.y*35;
+    ctxB.beginPath(); ctxB.arc(sx,sy,4,0,Math.PI*2);
+    ctxB.fillStyle = '#f85149'; ctxB.fill();
+  });
+  // 拟合直线
+  const x1=-1, x2=1;
+  const y1=w*x1+b, y2=w*x2+b;
+  ctxB.beginPath();
+  ctxB.moveTo(150+(x1+1)*300, 200-y1*35);
+  ctxB.lineTo(150+(x2+1)*300, 200-y2*35);
+  ctxB.strokeStyle = '#58a6ff'; ctxB.lineWidth = 3; ctxB.stroke();
+  // 损失曲线（右上角小图）
+  const lgx=640, lgy=40, lgw=220, lgh=130;
+  ctxB.strokeStyle='#30363d'; ctxB.strokeRect(lgx,lgy,lgw,lgh);
+  ctxB.fillStyle='#8b949e'; ctxB.font='12px Consolas';
+  ctxB.fillText('Loss', lgx+6, lgy+16);
+  if (lossHistory.length > 1) {
+    const maxL = Math.max(...lossHistory);
+    ctxB.beginPath();
+    lossHistory.forEach((L,i) => {
+      const sx = lgx + (i/(lossHistory.length-1))*lgw;
+      const sy = lgy+lgh - (L/maxL)*lgh;
+      if (i===0) ctxB.moveTo(sx,sy); else ctxB.lineTo(sx,sy);
+    });
+    ctxB.strokeStyle='#d29922'; ctxB.lineWidth=2; ctxB.stroke();
+  }
+  // 公式信息
+  ctxB.fillStyle = '#e6edf3'; ctxB.font = '16px Consolas';
+  ctxB.fillText('y = '+w.toFixed(2)+'·x + '+b.toFixed(2), 420, 360);
+  const curLoss = lossHistory.length ? lossHistory[lossHistory.length-1].toFixed(3) : '--';
+  ctxB.fillStyle = '#d29922';
+  ctxB.fillText('Loss = '+curLoss, 420, 385);
+  if (lossHistory.length && lossHistory[lossHistory.length-1] > 0.05) {
+    requestAnimationFrame(drawBackprop);
+  }
+}
+
+/* ---------- 主循环 ---------- */
+function mainLoop() {
+  drawNeuron(performance.now());
+  if (document.getElementById('forward').style.display !== 'none') drawForward();
+  if (document.getElementById('activation').style.display !== 'none') drawActivation();
+  if (document.getElementById('backprop').style.display !== 'none') drawBackprop();
+  requestAnimationFrame(mainLoop);
+}
+requestAnimationFrame(mainLoop);
+</script>
+</body>
+</html>

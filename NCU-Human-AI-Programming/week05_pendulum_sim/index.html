@@ -1,0 +1,434 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1a1a24">
+  <title>单摆模拟实验 | Week 05</title>
+  <style>
+    :root {
+      color-scheme: dark;
+      --bg: #1a1a24;
+      --panel: #22222d;
+      --panel-raised: #292934;
+      --line: #3b3b47;
+      --text: #f2efe8;
+      --muted: #a6a4ae;
+      --soft: #777783;
+      --amber: #f0b66c;
+      --mint: #8bd5bb;
+      --red: #ef8b83;
+      --mono: "Cascadia Code", "SFMono-Regular", Consolas, monospace;
+      font-family: "Microsoft YaHei UI", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    * { box-sizing: border-box; }
+    body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--bg); }
+    button, input { font: inherit; }
+    button { color: inherit; }
+
+    .app { min-height: 100vh; display: grid; grid-template-rows: 68px 1fr 38px; }
+    .topbar, .footer { display: flex; align-items: center; justify-content: space-between; padding: 0 30px; }
+    .topbar { border-bottom: 1px solid var(--line); }
+    .identity { display: flex; align-items: center; gap: 13px; }
+    .mark { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid #8b7258; border-radius: 50%; color: var(--amber); font: 17px Georgia, serif; }
+    .brand { font-size: 12px; font-weight: 700; letter-spacing: 0; }
+    .brand small { display: block; margin-top: 3px; color: var(--muted); font: 9px var(--mono); }
+    .top-meta { color: var(--muted); font: 10px var(--mono); }
+    .top-meta strong { color: var(--mint); font-weight: 500; }
+
+    main { width: min(1380px, 100%); margin: 0 auto; padding: 30px; display: grid; grid-template-columns: minmax(0, 1fr) 286px; gap: 22px; align-content: center; }
+    .simulation { min-width: 0; }
+    .heading { display: flex; justify-content: space-between; align-items: end; margin: 0 0 16px; }
+    .eyebrow { color: var(--amber); font: 10px var(--mono); text-transform: uppercase; }
+    h1 { margin: 6px 0 0; font: 400 30px/1.15 Georgia, "Songti SC", serif; letter-spacing: 0; }
+    .subheading { color: var(--muted); font-size: 11px; }
+    .canvas-wrap { position: relative; overflow: hidden; height: min(64vh, 560px); min-height: 330px; border: 1px solid var(--line); background: #1d1d27; }
+    canvas { display: block; width: 100%; height: 100%; }
+    .scene-label { position: absolute; left: 17px; top: 15px; color: var(--soft); font: 9px var(--mono); pointer-events: none; }
+    .scene-readout { position: absolute; right: 16px; top: 14px; display: flex; gap: 18px; color: var(--muted); font: 10px var(--mono); pointer-events: none; }
+    .scene-readout b { color: var(--text); font-weight: 500; }
+    .timeline { height: 3px; background: #34343f; }
+    .timeline-fill { height: 100%; width: 0; background: var(--amber); }
+    .sim-controls { display: flex; align-items: center; gap: 10px; padding-top: 14px; }
+    .icon-button { width: 38px; height: 36px; display: grid; place-items: center; border: 1px solid var(--line); background: var(--panel); cursor: pointer; }
+    .icon-button:hover { border-color: var(--amber); color: var(--amber); }
+    .icon-button svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+    .control-hint { margin-left: auto; color: var(--soft); font-size: 10px; }
+
+    .side { align-self: end; border: 1px solid var(--line); background: var(--panel); }
+    .side-section { padding: 18px; border-bottom: 1px solid var(--line); }
+    .side-section:last-child { border-bottom: 0; }
+    .section-title { display: flex; align-items: center; justify-content: space-between; margin-bottom: 18px; color: var(--muted); font: 10px var(--mono); text-transform: uppercase; }
+    .section-title span:last-child { color: var(--soft); }
+    .parameter { margin: 0 0 21px; }
+    .parameter:last-child { margin-bottom: 0; }
+    .param-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; font-size: 11px; }
+    .param-head label { color: var(--text); }
+    .param-value { color: var(--amber); font: 12px var(--mono); }
+    .param-value small { color: var(--muted); font-size: 9px; }
+    input[type="range"] { width: 100%; height: 3px; margin: 0; appearance: none; background: #484853; cursor: pointer; }
+    input[type="range"]::-webkit-slider-thumb { width: 12px; height: 12px; appearance: none; border: 2px solid var(--bg); border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+    input[type="range"]::-moz-range-thumb { width: 9px; height: 9px; border: 2px solid var(--bg); border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 1px var(--amber); }
+    input[type="range"]:focus-visible { outline: 1px solid var(--mint); outline-offset: 5px; }
+    .parameter-panel { margin-top: 14px; padding: 15px 18px 17px; border: 1px solid var(--line); background: var(--panel); }
+    .parameter-panel .section-title { margin-bottom: 16px; }
+    .parameter-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px; }
+    .parameter-grid .parameter { margin: 0; }
+    .text-button { width: auto; min-width: 38px; padding: 0 12px; display: flex; align-items: center; justify-content: center; gap: 8px; font-size: 10px; }
+    .text-button:hover { color: var(--amber); }
+
+    .readouts { display: grid; grid-template-columns: 1fr 1fr; gap: 17px 10px; }
+    .metric small { display: block; margin-bottom: 6px; color: var(--muted); font-size: 9px; }
+    .metric strong { font: 15px var(--mono); font-weight: 400; }
+    .metric strong em { color: var(--soft); font-size: 9px; font-style: normal; }
+    .energy-track { height: 4px; margin-top: 14px; background: #484853; }
+    .energy-level { width: 0; height: 100%; background: var(--mint); transition: width 80ms linear; }
+    .energy-label { display: flex; justify-content: space-between; margin-top: 7px; color: var(--soft); font: 8px var(--mono); }
+    .model-note { color: var(--muted); font-size: 9px; line-height: 1.7; }
+    .model-note b { color: var(--mint); font-weight: 500; }
+    .footer { border-top: 1px solid var(--line); color: var(--soft); font: 9px var(--mono); }
+    .footer span:last-child { color: var(--muted); }
+
+    @media (max-width: 800px) {
+      .app { grid-template-rows: 60px 1fr 34px; }
+      .topbar, .footer { padding: 0 18px; }
+      main { padding: 23px 18px; grid-template-columns: 1fr; gap: 14px; align-content: start; }
+      h1 { font-size: 26px; }
+      .canvas-wrap { height: min(52vh, 470px); min-height: 290px; }
+      .side { display: grid; grid-template-columns: 1fr 1fr; }
+      .side-section { padding: 15px; }
+      .side-section:nth-child(2) { border-right: 0; }
+      .side-section:nth-child(3) { grid-column: 1 / -1; border-top: 1px solid var(--line); }
+      .control-hint { max-width: 55%; text-align: right; line-height: 1.5; }
+      .parameter-panel { padding: 14px; }
+      .parameter-grid { gap: 12px; }
+    }
+    @media (max-width: 440px) {
+      .top-meta { font-size: 8px; }
+      .heading { align-items: start; flex-direction: column; gap: 7px; }
+      .scene-readout { gap: 10px; font-size: 9px; }
+      .side { grid-template-columns: 1fr; }
+      .side-section:nth-child(2) { border-top: 1px solid var(--line); }
+      .side-section:nth-child(3) { grid-column: auto; }
+      .parameter-grid { grid-template-columns: 1fr; gap: 17px; }
+      .parameter-grid .parameter { margin: 0; }
+      .footer { font-size: 8px; }
+    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { scroll-behavior: auto !important; } }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="topbar">
+      <div class="identity">
+        <div class="mark" aria-hidden="true">π</div>
+        <div class="brand">物理实验室<small>PHYSICS / SIMULATION</small></div>
+      </div>
+      <div class="top-meta">WEEK 05&nbsp;&nbsp; / &nbsp;&nbsp;<strong id="runStatus">SIMULATION RUNNING</strong></div>
+    </header>
+
+    <main>
+      <section class="simulation" aria-labelledby="title">
+        <div class="heading">
+          <div><div class="eyebrow">MECHANICS · 01</div><h1 id="title">单摆运动</h1></div>
+          <div class="subheading">非线性简谐运动模拟</div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="scene" aria-label="单摆物理模拟画布"></canvas>
+          <div class="scene-label">FIG 01 &nbsp; / &nbsp; PENDULUM</div>
+          <div class="scene-readout"><span>θ <b id="angleReadout">45.0°</b></span><span>ω <b id="omegaReadout">0.00</b></span></div>
+        </div>
+        <div class="timeline"><div class="timeline-fill" id="timeline"></div></div>
+        <section class="parameter-panel" aria-label="单摆实时参数控制">
+          <div class="section-title"><span>实时参数</span><span>LIVE CONTROLS</span></div>
+          <div class="parameter-grid">
+            <div class="parameter">
+              <div class="param-head"><label for="length">摆长 L</label><span class="param-value"><b id="lengthValue">200</b> <small>px</small></span></div>
+              <input id="length" type="range" min="100" max="350" step="1" value="200" aria-label="摆长，100到350像素">
+            </div>
+            <div class="parameter">
+              <div class="param-head"><label for="gravity">重力加速度 g</label><span class="param-value"><b id="gravityValue">9.8</b> <small>m/s²</small></span></div>
+              <input id="gravity" type="range" min="1" max="25" step="0.1" value="9.8" aria-label="重力加速度，1到25米每二次方秒">
+            </div>
+            <div class="parameter">
+              <div class="param-head"><label for="damping">阻尼系数 c</label><span class="param-value"><b id="dampingValue">0.000</b> <small></small></span></div>
+              <input id="damping" type="range" min="0" max="0.01" step="0.001" value="0" aria-label="阻尼系数，0到0.010">
+            </div>
+          </div>
+        </section>
+        <div class="sim-controls">
+          <button class="icon-button" id="toggleButton" type="button" aria-label="暂停模拟" title="暂停模拟">
+            <svg id="toggleIcon" viewBox="0 0 20 20" aria-hidden="true"><path d="M7 4.5v11M13 4.5v11" /></svg>
+          </button>
+          <button class="icon-button text-button" id="resetButton" type="button" aria-label="重置摆动" title="重置摆动">
+            <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M4.2 8a6 6 0 1 1-.1 4M4 4.5V8h3.5" /></svg>
+            <span>重置摆动</span>
+          </button>
+          <span class="control-hint">重置后停在 45° 初态；点击播放继续，阻尼越大衰减越快</span>
+        </div>
+      </section>
+
+      <aside class="side" aria-label="实验参数与测量数据">
+        <section class="side-section">
+          <div class="section-title"><span>实时测量</span><span>OUTPUT</span></div>
+          <div class="readouts">
+            <div class="metric"><small>周期 T</small><strong><span id="periodValue">2.13</span> <em>s</em></strong></div>
+            <div class="metric"><small>时间 t</small><strong><span id="timeValue">0.00</span> <em>s</em></strong></div>
+            <div class="metric"><small>角速度 ω</small><strong><span id="speedValue">0.00</span> <em>rad/s</em></strong></div>
+            <div class="metric"><small>总机械能 E</small><strong><span id="energyValue">0.00</span> <em>J/kg</em></strong></div>
+          </div>
+          <div class="energy-track" aria-label="动能占总机械能比例"><div class="energy-level" id="energyLevel"></div></div>
+          <div class="energy-label"><span>势能</span><span>动能</span></div>
+        </section>
+
+        <section class="side-section">
+          <div class="section-title"><span>物理模型</span><span>MODEL</span></div>
+          <div class="model-note"><b>θ̈ = −(g / L) sin θ − 18cω</b><br>采用四阶 Runge–Kutta 数值积分。标定关系：200 px = 1 m；阻尼项使摆幅逐渐衰减。</div>
+        </section>
+      </aside>
+    </main>
+
+    <footer class="footer"><span>NCU · PHYSICS LAB</span><span>WEEK 05 &nbsp; / &nbsp; PENDULUM SIMULATION</span></footer>
+  </div>
+
+  <script>
+    (() => {
+      "use strict";
+
+      const canvas = document.getElementById("scene");
+      const context = canvas.getContext("2d");
+      const controls = {
+        length: document.getElementById("length"),
+        gravity: document.getElementById("gravity"),
+        damping: document.getElementById("damping")
+      };
+      const readouts = {
+        angle: document.getElementById("angleReadout"),
+        omega: document.getElementById("omegaReadout"),
+        length: document.getElementById("lengthValue"),
+        gravity: document.getElementById("gravityValue"),
+        damping: document.getElementById("dampingValue"),
+        period: document.getElementById("periodValue"),
+        time: document.getElementById("timeValue"),
+        speed: document.getElementById("speedValue"),
+        energy: document.getElementById("energyValue"),
+        energyLevel: document.getElementById("energyLevel"),
+        timeline: document.getElementById("timeline"),
+        status: document.getElementById("runStatus")
+      };
+      const toggleButton = document.getElementById("toggleButton");
+      const toggleIcon = document.getElementById("toggleIcon");
+      const fixedStep = 1 / 240;
+      const pixelsPerMeter = 200;
+      const initialAngle = Math.PI / 4;
+      let theta = initialAngle;
+      let omega = 0;
+      let elapsed = 0;
+      let accumulator = 0;
+      let lastFrame = 0;
+      let running = true;
+      let width = 0;
+      let height = 0;
+      let pixelRatio = 1;
+      let trail = [];
+      let trailClock = 0;
+
+      const lengthMeters = () => Number(controls.length.value) / pixelsPerMeter;
+      const gravity = () => Number(controls.gravity.value);
+      const dampingRate = () => 18 * Number(controls.damping.value);
+      const naturalFrequency = () => Math.sqrt(Math.max(gravity() / lengthMeters() - dampingRate() ** 2 / 4, 0.0001));
+      const period = () => {
+        const k = Math.sin(initialAngle / 2);
+        let estimate = 2 * Math.PI / naturalFrequency();
+        let term = 1;
+        let sum = 1;
+        for (let index = 1; index <= 8; index += 1) {
+          term *= Math.pow((2 * index - 1) / (2 * index), 2) * k * k;
+          sum += term;
+        }
+        return estimate * sum;
+      };
+
+      function acceleration(angle) {
+        return -(gravity() / lengthMeters()) * Math.sin(angle) - dampingRate() * omega;
+      }
+
+      function integrate(step) {
+        const k1Theta = omega;
+        const k1Omega = acceleration(theta);
+        const k2Theta = omega + k1Omega * step / 2;
+        const k2Omega = acceleration(theta + k1Theta * step / 2);
+        const k3Theta = omega + k2Omega * step / 2;
+        const k3Omega = acceleration(theta + k2Theta * step / 2);
+        const k4Theta = omega + k3Omega * step;
+        const k4Omega = acceleration(theta + k3Theta * step);
+        theta += step * (k1Theta + 2 * k2Theta + 2 * k3Theta + k4Theta) / 6;
+        omega += step * (k1Omega + 2 * k2Omega + 2 * k3Omega + k4Omega) / 6;
+      }
+
+      function resize() {
+        const bounds = canvas.getBoundingClientRect();
+        pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
+        width = bounds.width;
+        height = bounds.height;
+        canvas.width = Math.round(width * pixelRatio);
+        canvas.height = Math.round(height * pixelRatio);
+        context.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+        draw();
+      }
+
+      function draw() {
+        if (!width || !height) return;
+        context.clearRect(0, 0, width, height);
+
+        const centerX = width / 2;
+        const pivotY = Math.max(76, height * 0.22);
+        const horizontalLimit = (width / 2 - 24) / Math.max(Math.sin(initialAngle), 0.2);
+        const visualLength = Math.min(Number(controls.length.value), height - pivotY - 66, horizontalLimit);
+        const bobX = centerX + visualLength * Math.sin(theta);
+        const bobY = pivotY + visualLength * Math.cos(theta);
+
+        context.save();
+        context.strokeStyle = "rgba(210, 207, 220, 0.055)";
+        context.lineWidth = 1;
+        const grid = 32;
+        for (let x = centerX % grid; x < width; x += grid) {
+          context.beginPath(); context.moveTo(x, 0); context.lineTo(x, height); context.stroke();
+        }
+        for (let y = pivotY % grid; y < height; y += grid) {
+          context.beginPath(); context.moveTo(0, y); context.lineTo(width, y); context.stroke();
+        }
+
+        context.setLineDash([3, 6]);
+        context.strokeStyle = "rgba(240, 182, 108, 0.24)";
+        context.beginPath();
+        context.moveTo(centerX, pivotY);
+        context.lineTo(centerX + visualLength * Math.sin(initialAngle), pivotY + visualLength * Math.cos(initialAngle));
+        context.moveTo(centerX, pivotY);
+        context.lineTo(centerX - visualLength * Math.sin(initialAngle), pivotY + visualLength * Math.cos(initialAngle));
+        context.stroke();
+        context.setLineDash([]);
+
+        if (trail.length > 1) {
+          context.beginPath();
+          trail.forEach((point, index) => index === 0 ? context.moveTo(point.x, point.y) : context.lineTo(point.x, point.y));
+          context.strokeStyle = "rgba(139, 213, 187, 0.36)";
+          context.lineWidth = 1.5;
+          context.stroke();
+        }
+
+        context.strokeStyle = "rgba(242, 239, 232, 0.88)";
+        context.lineWidth = 1.6;
+        context.beginPath(); context.moveTo(centerX, pivotY); context.lineTo(bobX, bobY); context.stroke();
+
+        context.fillStyle = "#b6b1ac";
+        context.beginPath(); context.arc(centerX, pivotY, 4, 0, Math.PI * 2); context.fill();
+        context.strokeStyle = "rgba(242, 239, 232, 0.12)";
+        context.beginPath(); context.arc(centerX, pivotY, 9, 0, Math.PI * 2); context.stroke();
+
+        const bobRadius = Math.max(10, Math.min(15, width * 0.025));
+        const glow = context.createRadialGradient(bobX, bobY, 1, bobX, bobY, bobRadius * 3.4);
+        glow.addColorStop(0, "rgba(240, 182, 108, 0.28)");
+        glow.addColorStop(1, "rgba(240, 182, 108, 0)");
+        context.fillStyle = glow;
+        context.beginPath(); context.arc(bobX, bobY, bobRadius * 3.4, 0, Math.PI * 2); context.fill();
+
+        const ball = context.createRadialGradient(bobX - bobRadius * 0.32, bobY - bobRadius * 0.38, 1, bobX, bobY, bobRadius);
+        ball.addColorStop(0, "#ffe0ad");
+        ball.addColorStop(0.44, "#f0b66c");
+        ball.addColorStop(1, "#a86d39");
+        context.fillStyle = ball;
+        context.beginPath(); context.arc(bobX, bobY, bobRadius, 0, Math.PI * 2); context.fill();
+
+        context.fillStyle = "rgba(242, 239, 232, 0.54)";
+        context.font = "10px Cascadia Code, Consolas, monospace";
+        context.fillText("L", centerX + (bobX - centerX) * 0.52 + 7, pivotY + (bobY - pivotY) * 0.52);
+        context.restore();
+      }
+
+      function updateReadouts() {
+        const currentLength = lengthMeters();
+        const potential = gravity() * currentLength * (1 - Math.cos(theta));
+        const kinetic = 0.5 * currentLength * currentLength * omega * omega;
+        const total = potential + kinetic;
+        const kineticRatio = total > 0 ? kinetic / total : 0;
+        readouts.angle.textContent = `${(theta * 180 / Math.PI).toFixed(1)}°`;
+        readouts.omega.textContent = omega.toFixed(2);
+        readouts.length.textContent = controls.length.value;
+        readouts.gravity.textContent = Number(controls.gravity.value).toFixed(1);
+        readouts.damping.textContent = Number(controls.damping.value).toFixed(3);
+        readouts.period.textContent = period().toFixed(2);
+        readouts.time.textContent = elapsed.toFixed(2);
+        readouts.speed.textContent = omega.toFixed(2);
+        readouts.energy.textContent = total.toFixed(3);
+        readouts.energyLevel.style.width = `${(kineticRatio * 100).toFixed(1)}%`;
+        readouts.timeline.style.width = `${((elapsed % period()) / period() * 100).toFixed(2)}%`;
+      }
+
+      function frame(timestamp) {
+        if (!lastFrame) lastFrame = timestamp;
+        const frameTime = Math.min((timestamp - lastFrame) / 1000, 0.05);
+        lastFrame = timestamp;
+        if (running) {
+          accumulator += frameTime;
+          while (accumulator >= fixedStep) {
+            integrate(fixedStep);
+            elapsed += fixedStep;
+            trailClock += fixedStep;
+            if (trailClock >= 0.025) {
+              trail.push({
+                x: width / 2 + Math.min(Number(controls.length.value), height - Math.max(76, height * 0.22) - 66) * Math.sin(theta),
+                y: Math.max(76, height * 0.22) + Math.min(Number(controls.length.value), height - Math.max(76, height * 0.22) - 66) * Math.cos(theta)
+              });
+              if (trail.length > 100) trail.shift();
+              trailClock = 0;
+            }
+            accumulator -= fixedStep;
+          }
+        }
+        draw();
+        updateReadouts();
+        requestAnimationFrame(frame);
+      }
+
+      function reset() {
+        theta = initialAngle;
+        omega = 0;
+        elapsed = 0;
+        accumulator = 0;
+        lastFrame = 0;
+        trail = [];
+        trailClock = 0;
+        setRunning(false);
+        draw();
+        updateReadouts();
+      }
+
+      function setRunning(nextRunning) {
+        running = nextRunning;
+        readouts.status.textContent = running ? "SIMULATION RUNNING" : "SIMULATION PAUSED";
+        toggleButton.setAttribute("aria-label", running ? "暂停模拟" : "继续模拟");
+        toggleButton.title = running ? "暂停模拟" : "继续模拟";
+        toggleIcon.innerHTML = running
+          ? '<path d="M7 4.5v11M13 4.5v11" />'
+          : '<path d="m7 4.5 8 5.5-8 5.5z" />';
+        lastFrame = 0;
+      }
+
+      Object.values(controls).forEach((input) => input.addEventListener("input", () => {
+        updateReadouts();
+        draw();
+      }));
+      toggleButton.addEventListener("click", () => setRunning(!running));
+      document.getElementById("resetButton").addEventListener("click", reset);
+      window.addEventListener("resize", resize);
+      resize();
+      updateReadouts();
+      requestAnimationFrame(frame);
+    })();
+  </script>
+</body>
+</html>

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>神经网络原理详解 · 动画演示</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --panel: #161b22;
+    --border: #30363d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --accent: #58a6ff;
+    --green: #3fb950;
+    --orange: #f0883e;
+    --red: #f85149;
+    --purple: #bc8cff;
+    --yellow: #d29922;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.7;
+    padding-bottom: 80px;
+  }
+  header {
+    padding: 32px 20px 16px;
+    text-align: center;
+  }
+  header h1 {
+    font-size: 1.6rem;
+    background: linear-gradient(90deg, var(--accent), var(--purple), var(--green));
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 8px;
+  }
+  header p { color: var(--muted); font-size: .9rem; }
+  .container { max-width: 720px; margin: 0 auto; padding: 0 16px; }
+  section {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 20px 18px;
+    margin-bottom: 24px;
+  }
+  section h2 {
+    font-size: 1.15rem;
+    margin-bottom: 6px;
+    color: var(--accent);
+  }
+  section .sub { color: var(--muted); font-size: .85rem; margin-bottom: 16px; }
+  section p { font-size: .92rem; color: #c9d1d9; margin-bottom: 10px; }
+  .formula {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+    font-family: "SF Mono", "Consolas", monospace;
+    font-size: 1rem;
+    color: var(--purple);
+    margin: 12px 0;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  .formula span { color: var(--accent); }
+  .tag {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: .75rem;
+    margin: 2px 3px;
+  }
+  .tag.blue { background: rgba(88,166,255,.15); color: var(--accent); }
+  .tag.green { background: rgba(63,185,80,.15); color: var(--green); }
+  .tag.orange { background: rgba(240,136,62,.15); color: var(--orange); }
+  .tag.red { background: rgba(248,81,73,.15); color: var(--red); }
+
+  /* SVG 画布 */
+  .stage {
+    background: #0d1117;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 14px 0;
+  }
+  svg { display: block; width: 100%; height: auto; }
+  .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; font-size: .78rem; color: var(--muted); }
+  .legend .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: middle; }
+
+  /* 神经元 3D 旋转 */
+  .neuron3d { width: 120px; height: 120px; margin: 10px auto; position: relative; perspective: 600px; }
+  .neuron3d .core {
+    position: absolute; inset: 40px; border-radius: 50%;
+    background: radial-gradient(circle at 35% 35%, #7ee0ff, var(--accent) 60%, #1f6feb);
+    box-shadow: 0 0 30px rgba(88,166,255,.7);
+  }
+  .neuron3d .ring {
+    position: absolute; inset: 12px; border-radius: 50%;
+    border: 2px solid var(--purple);
+    animation: spinY 6s linear infinite;
+    transform-style: preserve-3d;
+  }
+  .neuron3d .ring.r2 { inset: 24px; border-color: var(--green); animation-duration: 4s; animation-direction: reverse; }
+  @keyframes spinY { from { transform: rotateX(60deg) rotateZ(0deg); } to { transform: rotateX(60deg) rotateZ(360deg); } }
+
+  /* 信号脉冲 */
+  .pulse { animation: pulse 2s ease-in-out infinite; }
+  @keyframes pulse {
+    0%,100% { opacity: 1; }
+    50% { opacity: .3; }
+  }
+  .dash { stroke-dasharray: 6 6; animation: dashmove 1s linear infinite; }
+  @keyframes dashmove { to { stroke-dashoffset: -12; } }
+
+  .flow { stroke-dasharray: 1000; animation: flow 4s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -2000; } }
+
+  .signal-dot {
+    animation: travel 3s linear infinite;
+  }
+  @keyframes travel { from { offset-distance: 0%; } to { offset-distance: 100%; } }
+
+  /* 激活函数曲线 */
+  .curve { stroke-dasharray: 400; stroke-dashoffset: 400; animation: draw 3s ease forwards; }
+  @keyframes draw { to { stroke-dashoffset: 0; } }
+
+  /* 权重连线高亮 */
+  .weight-line { transition: stroke-width .3s, stroke .3s; }
+  .weight-line.hot { stroke: var(--orange) !important; stroke-width: 3.5; }
+
+  /* 训练损失下降 */
+  .loss-line { stroke-dasharray: 600; stroke-dashoffset: 600; animation: draw 4s ease forwards; }
+
+  .btn {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: #21262d;
+    color: var(--text);
+    font-size: .85rem;
+    cursor: pointer;
+    margin: 4px;
+  }
+  .btn:active { transform: scale(.97); }
+
+  .nav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    background: rgba(22,27,34,.9);
+    backdrop-filter: blur(10px);
+    border-top: 1px solid var(--border);
+    display: flex;
+    overflow-x: auto;
+    padding: 8px;
+    gap: 6px;
+    z-index: 50;
+  }
+  .nav a {
+    flex: 0 0 auto;
+    padding: 8px 12px;
+    border-radius: 8px;
+    color: var(--muted);
+    text-decoration: none;
+    font-size: .8rem;
+    white-space: nowrap;
+  }
+  .nav a.on { background: rgba(88,166,255,.15); color: var(--accent); }
+
+  .matrix { display: flex; gap: 12px; align-items: center; justify-content: center; flex-wrap: wrap; }
+  .m { display: inline-grid; gap: 4px; }
+  .m .cell {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: #21262d; border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: .75rem; font-family: monospace;
+    transition: background .5s;
+  }
+  .m .cell.hl { background: var(--accent); color: #0d1117; }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>神经网络原理详解</h1>
+  <p>从神经元到深度学习 · 滑动观看动画演示</p>
+</header>
+
+<div class="container">
+
+  <!-- 1. 神经元 -->
+  <section id="s1">
+    <h2>1. 单个神经元</h2>
+    <div class="sub">神经网络的基本计算单元，模拟生物神经元「接收信号 → 加权求和 → 输出」</div>
+    <p>一个神经元接收多个输入 <b>x₁, x₂, x₃</b>，每个输入乘以对应的<b>权重</b> w，加上<b>偏置</b> b，再经过<b>激活函数</b>输出。</p>
+    <div class="formula">z = <span>Σ wᵢxᵢ</span> + b &nbsp;&nbsp;→&nbsp;&nbsp; a = <span>σ(z)</span></div>
+
+    <div class="stage">
+      <svg viewBox="0 0 400 220" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,0 L10,5 L0,10 z" fill="#8b949e"/>
+          </marker>
+        </defs>
+        <!-- 输入 -->
+        <circle cx="50" cy="50" r="14" fill="#0d1117" stroke="#f0883e" stroke-width="2"/>
+        <text x="50" y="54" font-size="11" fill="#f0883e" text-anchor="middle">x₁</text>
+        <circle cx="50" cy="110" r="14" fill="#0d1117" stroke="#f0883e" stroke-width="2"/>
+        <text x="50" y="114" font-size="11" fill="#f0883e" text-anchor="middle">x₂</text>
+        <circle cx="50" cy="170" r="14" fill="#0d1117" stroke="#f0883e" stroke-width="2"/>
+        <text x="50" y="174" font-size="11" fill="#f0883e" text-anchor="middle">x₃</text>
+
+        <!-- 权重标签 -->
+        <text x="145" y="52" font-size="10" fill="#d29922">w₁</text>
+        <text x="145" y="112" font-size="10" fill="#d29922">w₂</text>
+        <text x="145" y="172" font-size="10" fill="#d29922">w₃</text>
+
+        <!-- 连线 -->
+        <line x1="64" y1="50" x2="205" y2="110" stroke="#8b949e" stroke-width="1.5" class="dash" marker-end="url(#arrow)"/>
+        <line x1="64" y1="110" x2="205" y2="110" stroke="#8b949e" stroke-width="1.5" class="dash" marker-end="url(#arrow)"/>
+        <line x1="64" y1="170" x2="205" y2="110" stroke="#8b949e" stroke-width="1.5" class="dash" marker-end="url(#arrow)"/>
+
+        <!-- 偏置 -->
+        <circle cx="205" cy="200" r="12" fill="#0d1117" stroke="#3fb950" stroke-width="1.5"/>
+        <text x="205" y="204" font-size="9" fill="#3fb950" text-anchor="middle">b</text>
+        <line x1="205" y1="188" x2="205" y2="128" stroke="#3fb950" stroke-width="1.5" class="dash" marker-end="url(#arrow)"/>
+
+        <!-- 神经元体 -->
+        <circle cx="205" cy="110" r="26" fill="#21262d" stroke="#58a6ff" stroke-width="2.5" class="pulse"/>
+        <text x="205" y="107" font-size="11" fill="#e6edf3" text-anchor="middle">Σ</text>
+        <text x="205" y="120" font-size="9" fill="#58a6ff" text-anchor="middle">求和</text>
+
+        <!-- 激活函数 -->
+        <rect x="285" y="85" width="70" height="50" rx="8" fill="#0d1117" stroke="#bc8cff" stroke-width="2" class="pulse"/>
+        <text x="320" y="112" font-size="12" fill="#bc8cff" text-anchor="middle">σ(z)</text>
+
+        <line x1="231" y1="110" x2="285" y2="110" stroke="#bc8cff" stroke-width="2" marker-end="url(#arrow)"/>
+        <line x1="355" y1="110" x2="395" y2="110" stroke="#e6edf3" stroke-width="2" marker-end="url(#arrow)"/>
+        <text x="390" y="100" font-size="10" fill="#8b949e" text-anchor="end">输出 a</text>
+      </svg>
+    </div>
+    <p><span class="tag orange">输入层</span><span class="tag yellow">权重</span><span class="tag blue">求和</span><span class="tag red">激活函数</span></p>
+  </section>
+
+  <!-- 2. 激活函数 -->
+  <section id="s2">
+    <h2>2. 激活函数</h2>
+    <div class="sub">为网络引入<b>非线性</b>，使其能拟合复杂关系</div>
+    <div class="formula">Sigmoid: σ(z) = <span>1 / (1 + e⁻ᶻ)</span></div>
+
+    <div class="stage">
+      <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+        <line x1="40" y1="170" x2="380" y2="170" stroke="#30363d" stroke-width="1"/>
+        <line x1="40" y1="170" x2="40" y2="20" stroke="#30363d" stroke-width="1"/>
+        <line x1="40" y1="20" x2="380" y2="20" stroke="#30363d" stroke-width="1"/>
+        <line x1="380" y1="20" x2="380" y2="170" stroke="#30363d" stroke-width="1"/>
+        <text x="210" y="190" font-size="10" fill="#8b949e" text-anchor="middle">z</text>
+        <text x="24" y="30" font-size="10" fill="#8b949e">σ</text>
+        <!-- 中间线 -->
+        <line x1="210" y1="20" x2="210" y2="170" stroke="#30363d" stroke-width="1" stroke-dasharray="3 3"/>
+        <line x1="40" y1="95" x2="380" y2="95" stroke="#30363d" stroke-width="1" stroke-dasharray="3 3"/>
+
+        <path d="M40,165 C 120,165 160,160 180,120 C 195,90 225,90 240,70 C 260,45 300,30 380,25"
+              fill="none" stroke="#58a6ff" stroke-width="3" class="curve"/>
+        <!-- 移动的点 -->
+        <circle r="6" fill="#f85149">
+          <animateMotion dur="3s" repeatCount="indefinite"
+            path="M40,165 C 120,165 160,160 180,120 C 195,90 225,90 240,70 C 260,45 300,30 380,25"/>
+        </circle>
+      </svg>
+    </div>
+    <p>输出被压缩到 (0, 1) 区间，可理解为「概率」。常见的还有 <b>ReLU</b>（max(0,z)）和 <b>Tanh</b> 等。</p>
+  </section>
+
+  <!-- 3. 多层网络 -->
+  <section id="s3">
+    <h2>3. 多层网络（深度）</h2>
+    <div class="sub">神经元分层堆叠，形成「输入层 → 隐藏层 → 输出层」</div>
+
+    <div class="stage">
+      <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="sig" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="400" y2="0">
+            <stop offset="0" stop-color="#f0883e"/>
+            <stop offset="1" stop-color="#58a6ff"/>
+          </linearGradient>
+        </defs>
+        <!-- 层背景 -->
+        <rect x="25" y="20" width="60" height="260" rx="8" fill="rgba(240,136,62,.06)" stroke="#f0883e" stroke-dasharray="4 3"/>
+        <rect x="175" y="10" width="60" height="280" rx="8" fill="rgba(88,166,255,.06)" stroke="#58a6ff" stroke-dasharray="4 3"/>
+        <rect x="325" y="20" width="60" height="260" rx="8" fill="rgba(63,185,80,.06)" stroke="#3fb950" stroke-dasharray="4 3"/>
+        <text x="55" y="292" font-size="9" fill="#f0883e" text-anchor="middle">输入层</text>
+        <text x="205" y="292" font-size="9" fill="#58a6ff" text-anchor="middle">隐藏层</text>
+        <text x="355" y="292" font-size="9" fill="#3fb950" text-anchor="middle">输出层</text>
+
+        <!-- 层1 -->
+        <circle cx="55" cy="60" r="12" fill="#0d1117" stroke="#f0883e" stroke-width="2"/>
+        <circle cx="55" cy="150" r="12" fill="#0d1117" stroke="#f0883e" stroke-width="2"/>
+        <circle cx="55" cy="240" r="12" fill="#0d1117" stroke="#f0883e" stroke-width="2"/>
+        <!-- 层2 -->
+        <circle cx="205" cy="50" r="12" fill="#0d1117" stroke="#58a6ff" stroke-width="2"/>
+        <circle cx="205" cy="110" r="12" fill="#0d1117" stroke="#58a6ff" stroke-width="2"/>
+        <circle cx="205" cy="170" r="12" fill="#0d1117" stroke="#58a6ff" stroke-width="2"/>
+        <circle cx="205" cy="230" r="12" fill="#0d1117" stroke="#58a6ff" stroke-width="2"/>
+        <!-- 层3 -->
+        <circle cx="355" cy="90" r="12" fill="#0d1117" stroke="#3fb950" stroke-width="2"/>
+        <circle cx="355" cy="210" r="12" fill="#0d1117" stroke="#3fb950" stroke-width="2"/>
+
+        <!-- 连线 -->
+        <g stroke="#30363d" stroke-width="1">
+          <line x1="67" y1="60" x2="193" y2="50"/><line x1="67" y1="60" x2="193" y2="110"/>
+          <line x1="67" y1="60" x2="193" y2="170"/><line x1="67" y1="60" x2="193" y2="230"/>
+          <line x1="67" y1="150" x2="193" y2="50"/><line x1="67" y1="150" x2="193" y2="110"/>
+          <line x1="67" y1="150" x2="193" y2="170"/><line x1="67" y1="150" x2="193" y2="230"/>
+          <line x1="67" y1="240" x2="193" y2="50"/><line x1="67" y1="240" x2="193" y2="110"/>
+          <line x1="67" y1="240" x2="193" y2="170"/><line x1="67" y1="240" x2="193" y2="230"/>
+          <line x1="217" y1="50" x2="343" y2="90"/><line x1="217" y1="50" x2="343" y2="210"/>
+          <line x1="217" y1="110" x2="343" y2="90"/><line x1="217" y1="110" x2="343" y2="210"/>
+          <line x1="217" y1="170" x2="343" y2="90"/><line x1="217" y1="170" x2="343" y2="210"/>
+          <line x1="217" y1="230" x2="343" y2="90"/><line x1="217" y1="230" x2="343" y2="210"/>
+        </g>
+
+        <!-- 信号流动画 -->
+        <circle r="4" fill="#d29922">
+          <animateMotion dur="2.5s" repeatCount="indefinite" path="M67,60 L193,50"/>
+        </circle>
+        <circle r="4" fill="#d29922">
+          <animateMotion dur="2.5s" begin="0.6s" repeatCount="indefinite" path="M67,150 L193,110"/>
+        </circle>
+        <circle r="4" fill="#d29922">
+          <animateMotion dur="2.5s" begin="1.2s" repeatCount="indefinite" path="M67,240 L193,230"/>
+        </circle>
+      </svg>
+    </div>
+    <p><b>深度</b> = 隐藏层的数量。层数越多、越「深」，能表达的特征越抽象。这就是<b>深度学习</b>名字的由来。</p>
+  </section>
+
+  <!-- 4. 前向传播 -->
+  <section id="s4">
+    <h2>4. 前向传播</h2>
+    <div class="sub">数据从输入层流到输出层，逐层计算</div>
+    <div class="formula">a⁽ˡ⁾ = σ( W⁽ˡ⁾ · a⁽ˡ⁻¹⁾ + b⁽ˡ⁾ )</div>
+    <p>用<b>矩阵运算</b>高效地一次算完整层：</p>
+    <div class="matrix">
+      <div class="m" style="grid-template-columns: repeat(2, 28px);">
+        <div class="cell">w₁₁</div><div class="cell">w₁₂</div>
+        <div class="cell">w₂₁</div><div class="cell">w₂₂</div>
+      </div>
+      <span style="color:var(--muted); font-size:1.2rem;">×</span>
+      <div class="m" style="grid-template-columns: 28px;">
+        <div class="cell">x₁</div>
+        <div class="cell">x₂</div>
+      </div>
+      <span style="color:var(--muted); font-size:1.2rem;">=</span>
+      <div class="m" style="grid-template-columns: 28px;">
+        <div class="cell hl">z₁</div>
+        <div class="cell hl">z₂</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5. 损失函数 -->
+  <section id="s5">
+    <h2>5. 损失函数</h2>
+    <div class="sub">衡量预测与真实答案的差距，差距越小越好</div>
+    <div class="formula">MSE: L = <span>(1/n) Σ (ŷ − y)²</span></div>
+    <div class="stage">
+      <svg viewBox="0 0 400 180" xmlns="http://www.w3.org/2000/svg">
+        <line x1="40" y1="150" x2="380" y2="150" stroke="#30363d" stroke-width="1"/>
+        <line x1="40" y1="150" x2="40" y2="20" stroke="#30363d" stroke-width="1"/>
+        <path d="M40,140 C 80,140 120,138 160,120 C 220,95 280,60 380,45"
+              fill="none" stroke="#f85149" stroke-width="3" class="loss-line"/>
+        <text x="360" y="40" font-size="10" fill="#f85149">损失 L</text>
+        <text x="380" y="165" font-size="10" fill="#8b949e" text-anchor="end">训练轮数</text>
+      </svg>
+    </div>
+    <p>训练目标：通过不断调整权重，让<b>损失曲线不断下降</b>（像上图那样收敛）。</p>
+  </section>
+
+  <!-- 6. 反向传播 -->
+  <section id="s6">
+    <h2>6. 反向传播</h2>
+    <div class="sub">核心算法！把误差从输出层「倒着」传回去，更新每个权重</div>
+    <p>用<b>链式法则</b>（微积分）计算损失对每个权重的梯度，再沿着梯度<b>反方向</b>更新权重：</p>
+    <div class="formula">w ← w − <span>η · ∂L/∂w</span></div>
+    <p><span class="tag green">η</span> 学习率，控制每次更新的步长（太大震荡，太小收敛慢）。</p>
+
+    <div class="stage">
+      <svg viewBox="0 0 400 200" xmlns="http://www.w3.org/2000/svg">
+        <!-- 山形曲线 -->
+        <path d="M40,60 C 100,160 150,160 210,100 C 260,50 320,60 360,40"
+              fill="none" stroke="#8b949e" stroke-width="2"/>
+        <!-- 球向下滚动到谷底 -->
+        <circle r="10" fill="#3fb950">
+          <animateMotion dur="4s" repeatCount="indefinite" keyPoints="0;1;0" keyTimes="0;0.5;1"
+            calcMode="linear" path="M40,60 C 100,160 150,160 210,100 C 260,50 320,60 360,40"/>
+        </circle>
+        <text x="210" y="186" font-size="11" fill="#58a6ff" text-anchor="middle">梯度下降：一路滚向「损失最小」的谷底</text>
+      </svg>
+    </div>
+  </section>
+
+  <!-- 7. 完整训练流程 -->
+  <section id="s7">
+    <h2>7. 训练全流程</h2>
+    <div class="sub">一个循环不断重复，直到损失足够小</div>
+    <div style="display:flex; flex-wrap:wrap; gap:8px; justify-content:center;">
+      <span class="tag blue">1 前向传播</span>
+      <span style="color:var(--muted)">→</span>
+      <span class="tag red">2 计算损失</span>
+      <span style="color:var(--muted)">→</span>
+      <span class="tag orange">3 反向传播</span>
+      <span style="color:var(--muted)">→</span>
+      <span class="tag green">4 更新权重</span>
+      <span style="color:var(--muted)">↻ 循环</span>
+    </div>
+    <p style="margin-top:12px; text-align:center;">
+      这就是神经网络「学习」的本质：<b>反复试错，逐渐变好</b>。
+    </p>
+  </section>
+
+  <!-- 8. 一个直觉例子 -->
+  <section id="s8">
+    <h2>8. 直觉：识别手写数字</h2>
+    <div class="sub">以经典的 MNIST 为例，看网络如何一步步抽象特征</div>
+    <div class="stage">
+      <svg viewBox="0 0 400 160" xmlns="http://www.w3.org/2000/svg">
+        <rect x="20" y="20" width="120" height="120" rx="8" fill="#0d1117" stroke="#30363d"/>
+        <text x="80" y="60" font-size="60" fill="#e6edf3" text-anchor="middle">7</text>
+        <text x="80" y="120" font-size="10" fill="#8b949e" text-anchor="middle">28×28 像素</text>
+        <line x1="145" y1="80" x2="175" y2="80" stroke="#58a6ff" stroke-width="2" marker-end="url(#arrow)" class="dash"/>
+        <rect x="180" y="20" width="120" height="120" rx="8" fill="#0d1117" stroke="#58a6ff" stroke-dasharray="4 3"/>
+        <text x="240" y="55" font-size="11" fill="#58a6ff" text-anchor="middle">边缘 → 形状</text>
+        <text x="240" y="75" font-size="11" fill="#bc8cff" text-anchor="middle">→ 数字特征</text>
+        <text x="240" y="105" font-size="10" fill="#8b949e" text-anchor="middle">逐层抽象</text>
+        <line x1="305" y1="80" x2="335" y2="80" stroke="#3fb950" stroke-width="2" marker-end="url(#arrow)" class="dash"/>
+        <rect x="340" y="20" width="45" height="120" rx="8" fill="#0d1117" stroke="#3fb950"/>
+        <text x="362" y="60" font-size="18" fill="#3fb950" text-anchor="middle">0</text>
+        <text x="362" y="80" font-size="18" fill="#3fb950" text-anchor="middle">9</text>
+        <text x="362" y="100" font-size="12" fill="#8b949e" text-anchor="middle">...</text>
+      </svg>
+    </div>
+    <p>低层识别<b>边缘</b>，中层组合成<b>形状</b>，高层判断<b>「这是 7」</b>——这就是层次化特征学习。</p>
+  </section>
+
+  <p style="text-align:center; color:var(--muted); font-size:.8rem; margin-top:8px;">
+    全文完 · 神经网络原理动画演示
+  </p>
+</div>
+
+<nav class="nav">
+  <a href="#s1" class="on">神经元</a>
+  <a href="#s2">激活函数</a>
+  <a href="#s3">多层网络</a>
+  <a href="#s4">前向传播</a>
+  <a href="#s5">损失函数</a>
+  <a href="#s6">反向传播</a>
+  <a href="#s7">训练流程</a>
+  <a href="#s8">识别数字</a>
+</nav>
+
+<script>
+  // 滚动高亮当前章节
+  const links = document.querySelectorAll('.nav a');
+  const secs = document.querySelectorAll('section');
+  window.addEventListener('scroll', () => {
+    let cur = secs[0].id;
+    secs.forEach(s => {
+      if (window.scrollY >= s.offsetTop - 80) cur = s.id;
+    });
+    links.forEach(a => a.classList.toggle('on', a.getAttribute('href') === '#' + cur));
+  });
+</script>
+</body>
+</html>

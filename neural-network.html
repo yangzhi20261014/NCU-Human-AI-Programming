@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>神经网络原理详解 - 动画演示</title>
+<style>
+  :root {
+    --bg: #0b1020;
+    --panel: #141a2e;
+    --panel2: #1c2440;
+    --text: #e6ebff;
+    --muted: #8a94b8;
+    --accent: #5b8cff;
+    --accent2: #00d4c8;
+    --warn: #ffb347;
+    --err: #ff5f6d;
+    --green: #3ddc97;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: "Segoe UI", "Microsoft YaHei", -apple-system, sans-serif;
+    line-height: 1.7;
+  }
+  .container { max-width: 1000px; margin: 0 auto; padding: 40px 24px 120px; }
+  header { text-align: center; margin-bottom: 50px; }
+  header h1 {
+    font-size: 2.4rem; margin: 0 0 8px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  header p { color: var(--muted); margin: 0; }
+  section { margin-bottom: 60px; }
+  h2 {
+    font-size: 1.5rem; margin: 0 0 8px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  h2 .num {
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #081020; font-weight: 700; font-size: 0.95rem;
+    width: 30px; height: 30px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    flex: none;
+  }
+  .desc { color: var(--muted); margin: 0 0 20px; font-size: 0.98rem; }
+  .panel {
+    background: var(--panel); border: 1px solid #26304f;
+    border-radius: 16px; padding: 24px; margin-bottom: 20px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.35);
+  }
+  .row { display: flex; gap: 20px; flex-wrap: wrap; }
+  .row > .panel { flex: 1; min-width: 280px; margin-bottom: 0; }
+  canvas, svg { display: block; width: 100%; }
+  .legend { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 14px; font-size: 0.85rem; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+  .btn {
+    display: inline-block; cursor: pointer; border: none; border-radius: 10px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    color: #081020; font-weight: 700; padding: 10px 20px; font-size: 0.95rem;
+    margin: 4px; transition: transform .15s ease, box-shadow .15s ease;
+  }
+  .btn:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(91,140,255,.35); }
+  .btn.ghost { background: var(--panel2); color: var(--text); border: 1px solid #33406b; }
+  .slider-wrap { display: flex; align-items: center; gap: 12px; margin-top: 14px; }
+  .slider-wrap input[type=range] { flex: 1; accent-color: var(--accent); }
+  .val { font-family: monospace; color: var(--accent2); min-width: 60px; text-align: right; }
+  .formula {
+    background: var(--panel2); border-radius: 10px; padding: 12px 16px;
+    font-family: "Cascadia Code", Consolas, monospace; font-size: 1rem;
+    color: var(--accent2); overflow-x: auto; margin: 8px 0;
+  }
+  .kbd { color: var(--warn); font-weight: 600; }
+  .note { font-size: 0.88rem; color: var(--muted); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { border: 1px solid #2a3557; padding: 8px 12px; text-align: left; }
+  th { background: var(--panel2); color: var(--accent2); }
+  code { background: var(--panel2); padding: 2px 6px; border-radius: 6px; color: var(--warn); font-family: Consolas, monospace; }
+</style>
+</head>
+<body>
+<div class="container">
+  <header>
+    <h1>神经网络原理 · 动画详解</h1>
+    <p>从单个神经元到反向传播，用交互动画理解深度学习的核心思想</p>
+  </header>
+
+  <!-- 1 神经元 -->
+  <section>
+    <h2><span class="num">1</span>神经元：基本计算单元</h2>
+    <p class="desc">神经元接收多个输入 <code>x</code>，分别乘以权重 <code>w</code> 后求和，加上偏置 <code>b</code>，再经过激活函数 <code>f</code> 输出。本质是一个「加权求和 → 非线性变换」的过程。</p>
+    <div class="row">
+      <div class="panel">
+        <canvas id="neuron" height="300"></canvas>
+        <div class="legend">
+          <span><span class="dot" style="background:var(--accent)"></span>输入 x</span>
+          <span><span class="dot" style="background:var(--warn)"></span>权重 w</span>
+          <span><span class="dot" style="background:var(--accent2)"></span>输出 y</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="formula">z = w₁x₁ + w₂x₂ + w₃x₃ + b</div>
+        <div class="formula">y = f(z) = tanh(z)</div>
+        <p class="note">权重决定了每个输入对结果的影响程度；偏置让神经元在没有输入时也能产生输出；激活函数引入非线性，让网络能拟合复杂关系。</p>
+        <div class="slider-wrap">
+          <span class="note">输入强度</span>
+          <input type="range" id="xRange" min="-2" max="2" step="0.05" value="1">
+          <span class="val" id="xVal">1.00</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 2 激活函数 -->
+  <section>
+    <h2><span class="num">2</span>激活函数：引入非线性</h2>
+    <p class="desc">没有激活函数，多层网络也只是线性变换。激活函数让网络拥有表达任意复杂函数的能力。</p>
+    <div class="panel">
+      <canvas id="activ" height="320"></canvas>
+      <div class="legend" style="justify-content:center">
+        <span><span class="dot" style="background:var(--accent)"></span>Sigmoid</span>
+        <span><span class="dot" style="background:var(--accent2)"></span>Tanh</span>
+        <span><span class="dot" style="background:var(--green)"></span>ReLU</span>
+        <span><span class="dot" style="background:var(--err)"></span>Leaky ReLU</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 前向传播 -->
+  <section>
+    <h2><span class="num">3</span>前向传播：逐层计算</h2>
+    <p class="desc">输入数据从输入层经过隐藏层逐层变换，最终得到输出层的结果。每一层的输出成为下一层的输入。</p>
+    <div class="panel">
+      <canvas id="forward" height="340"></canvas>
+      <div class="legend" style="justify-content:center">
+        <span><span class="dot" style="background:var(--accent)"></span>输入层</span>
+        <span><span class="dot" style="background:var(--warn)"></span>隐藏层</span>
+        <span><span class="dot" style="background:var(--green)"></span>输出层</span>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:12px">
+      <button class="btn" id="playForward">▶ 播放前向传播</button>
+      <button class="btn ghost" id="resetForward">重置</button>
+    </div>
+  </section>
+
+  <!-- 4 损失函数 -->
+  <section>
+    <h2><span class="num">4</span>损失函数：衡量差距</h2>
+    <p class="desc">损失函数度量「预测值」与「真实值」的差距，网络训练的目标就是最小化这个损失。</p>
+    <div class="row">
+      <div class="panel">
+        <canvas id="loss" height="300"></canvas>
+        <div class="legend" style="justify-content:center">
+          <span><span class="dot" style="background:var(--err)"></span>损失 L(θ)</span>
+        </div>
+      </div>
+      <div class="panel">
+        <div class="formula">均方误差 MSE = (1/n)·Σ(ŷᵢ − yᵢ)²</div>
+        <div class="formula">交叉熵 CE = −Σ yᵢ·log(ŷᵢ)</div>
+        <p class="note">回归问题常用 MSE，分类问题常用交叉熵。损失越小，表示模型预测越准确。</p>
+        <div class="slider-wrap">
+          <span class="note">参数 θ</span>
+          <input type="range" id="lossRange" min="0" max="100" step="1" value="30">
+          <span class="val" id="lossVal"></span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 反向传播 & 梯度下降 -->
+  <section>
+    <h2><span class="num">5</span>反向传播 & 梯度下降</h2>
+    <p class="desc">利用链式法则，从输出层向输入层反向计算每个参数对损失的影响（梯度），然后沿着梯度的反方向更新参数，逐步逼近最优解。</p>
+    <div class="panel">
+      <canvas id="grad" height="340"></canvas>
+      <div class="legend" style="justify-content:center">
+        <span><span class="dot" style="background:var(--accent)"></span>损失曲面</span>
+        <span><span class="dot" style="background:var(--warn)"></span>当前参数</span>
+        <span><span class="dot" style="background:var(--err)"></span>更新轨迹</span>
+      </div>
+    </div>
+    <div style="text-align:center; margin-top:12px">
+      <button class="btn" id="playGrad">▶ 播放梯度下降</button>
+      <button class="btn ghost" id="resetGrad">重置</button>
+    </div>
+    <div class="panel">
+      <div class="formula">θ ← θ − η · ∇L(θ)</div>
+      <p class="note">其中 <span class="kbd">η</span> 是学习率，<span class="kbd">∇L(θ)</span> 是损失关于参数的梯度。学习率太大容易震荡甚至发散，太小则收敛缓慢。</p>
+      <div class="slider-wrap">
+        <span class="note">学习率 η</span>
+        <input type="range" id="lrRange" min="0.02" max="1" step="0.02" value="0.3">
+        <span class="val" id="lrVal">0.30</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 6 完整流程 -->
+  <section>
+    <h2><span class="num">6</span>训练全流程总结</h2>
+    <p class="desc">一次完整的训练迭代包含以下步骤，反复执行直到损失收敛。</p>
+    <div class="panel">
+      <table>
+        <tr><th>步骤</th><th>名称</th><th>说明</th></tr>
+        <tr><td>1</td><td>前向传播</td><td>输入经各层计算得到预测输出</td></tr>
+        <tr><td>2</td><td>计算损失</td><td>比较预测值与真实值，得到误差</td></tr>
+        <tr><td>3</td><td>反向传播</td><td>链式法则逐层求梯度</td></tr>
+        <tr><td>4</td><td>更新参数</td><td>梯度下降更新权重与偏置</td></tr>
+        <tr><td>5</td><td>重复迭代</td><td>遍历多个 epoch，直到损失足够小</td></tr>
+      </table>
+    </div>
+  </section>
+
+  <footer style="text-align:center; color:var(--muted); margin-top:40px; font-size:0.85rem">
+    神经网络原理动画演示 · 使用 Canvas 纯前端实现
+  </footer>
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  function dpr(canvas){
+    const r = window.devicePixelRatio || 1;
+    const w = canvas.clientWidth || canvas.parentElement.clientWidth || 600;
+    const h = canvas.height;
+    canvas.width = w * r; canvas.height = h * r;
+    const ctx = canvas.getContext("2d");
+    ctx.scale(r, r);
+    return { ctx, w, h };
+  }
+
+  /* ---------- 1. 神经元 ---------- */
+  const nctx = (function(){
+    const c = document.getElementById("neuron");
+    const { ctx, w, h } = dpr(c);
+    return { c, ctx, w, h };
+  })();
+
+  const xRange = document.getElementById("xRange");
+  const xVal = document.getElementById("xVal");
+  let sharedX = 1.0;
+  xRange.addEventListener("input", () => {
+    sharedX = parseFloat(xRange.value);
+    xVal.textContent = sharedX.toFixed(2);
+    drawNeuron();
+  });
+
+  const wWeights = [0.8, -0.4, 0.6];
+  const wBias = 0.2;
+
+  function drawNeuron(){
+    const { ctx, w, h } = nctx;
+    ctx.clearRect(0,0,w,h);
+    const cx = w * 0.62, cy = h / 2;
+    const inputs = [
+      { x: w*0.15, y: h*0.22, xv: sharedX },
+      { x: w*0.15, y: h*0.5,  xv: -sharedX*0.6 },
+      { x: w*0.15, y: h*0.78, xv: sharedX*0.4 }
+    ];
+    // inputs
+    inputs.forEach(p => {
+      ctx.beginPath(); ctx.arc(p.x, p.y, 14, 0, Math.PI*2);
+      ctx.fillStyle = "#5b8cff"; ctx.fill();
+      ctx.strokeStyle = "#aac2ff"; ctx.stroke();
+      ctx.fillStyle = "#081020"; ctx.font = "bold 12px Consolas";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(p.xv.toFixed(1), p.x, p.y);
+    });
+    // bias input
+    ctx.beginPath(); ctx.arc(w*0.15, h*0.86, 11, 0, Math.PI*2);
+    ctx.fillStyle = "#33406b"; ctx.fill();
+    ctx.fillStyle = "#aab"; ctx.font = "bold 10px Consolas";
+    ctx.fillText("b", w*0.15, h*0.86);
+
+    // weighted lines with flow animation
+    const t = performance.now() / 1000;
+    inputs.forEach((p, i) => {
+      const weight = wWeights[i];
+      const alpha = 0.25 + 0.55 * (Math.sin(t*2 + i*1.5) + 1)/2;
+      const grad = ctx.createLinearGradient(p.x, p.y, cx, cy);
+      grad.addColorStop(0, "rgba(255,179,71,0.9)");
+      grad.addColorStop(1, "rgba(91,140,255,0.9)");
+      ctx.strokeStyle = grad;
+      ctx.lineWidth = 2 + Math.abs(weight)*2.5;
+      ctx.beginPath(); ctx.moveTo(p.x + 14, p.y); ctx.lineTo(cx - 24, cy);
+      ctx.stroke();
+      // flowing dot
+      const px = p.x + (cx - p.x) * alpha;
+      const py = p.y + (cy - p.y) * alpha;
+      ctx.beginPath(); ctx.arc(px, py, 3.5, 0, Math.PI*2);
+      ctx.fillStyle = "rgba(255,255,255,0.95)"; ctx.fill();
+      // weight label
+      const mx = (p.x + cx)/2, my = (p.y + cy)/2;
+      ctx.fillStyle = "#ffb347"; ctx.font = "bold 12px Consolas";
+      ctx.fillText("w="+weight.toFixed(1), mx - 20, my - 8);
+    });
+    // bias line
+    ctx.strokeStyle = "rgba(150,160,200,0.5)";
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(w*0.15 + 11, h*0.86); ctx.lineTo(cx - 24, cy);
+    ctx.stroke();
+
+    // neuron body
+    const z = inputs.reduce((s,p,i)=> s + p.xv*wWeights[i], 0) + wBias;
+    const y = Math.tanh(z);
+    const glow = 0.3 + 0.7*Math.abs(y);
+    const rg = ctx.createRadialGradient(cx, cy, 4, cx, cy, 30);
+    rg.addColorStop(0, `rgba(0,212,200,${glow})`);
+    rg.addColorStop(1, "rgba(0,212,200,0)");
+    ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(cx, cy, 30, 0, Math.PI*2); ctx.fill();
+    ctx.beginPath(); ctx.arc(cx, cy, 24, 0, Math.PI*2);
+    ctx.fillStyle = "#0e1730"; ctx.fill();
+    ctx.strokeStyle = "#00d4c8"; ctx.lineWidth = 2; ctx.stroke();
+    ctx.fillStyle = "#00d4c8"; ctx.font = "bold 13px Consolas";
+    ctx.fillText("Σ f", cx, cy - 2);
+
+    // output line
+    const ox = cx + 24, oy = cy;
+    ctx.strokeStyle = "rgba(0,212,200,0.9)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath(); ctx.moveTo(ox, oy); ctx.lineTo(w*0.88, oy); ctx.stroke();
+    ctx.beginPath(); ctx.arc(w*0.9, oy, 13, 0, Math.PI*2);
+    ctx.fillStyle = "#00d4c8"; ctx.fill();
+    ctx.strokeStyle = "#aafff0"; ctx.stroke();
+    ctx.fillStyle = "#081020"; ctx.font = "bold 12px Consolas";
+    ctx.fillText(y.toFixed(2), w*0.9, oy);
+
+    // formula
+    ctx.fillStyle = "#8a94b8"; ctx.font = "12px Consolas";
+    ctx.textAlign = "left";
+    ctx.fillText("z = " + z.toFixed(2), w*0.08, h*0.12);
+    ctx.fillText("y = tanh(z) = " + y.toFixed(2), w*0.08, h*0.12 + 18);
+  }
+
+  /* ---------- 2. 激活函数 ---------- */
+  const actx = (function(){
+    const c = document.getElementById("activ");
+    const { ctx, w, h } = dpr(c);
+    return { c, ctx, w, h };
+  })();
+  function sigmoid(x){ return 1/(1+Math.exp(-x)); }
+  function relu(x){ return Math.max(0, x); }
+  function leaky(x){ return x > 0 ? x : 0.1*x; }
+  function drawActiv(){
+    const { ctx, w, h } = actx;
+    ctx.clearRect(0,0,w,h);
+    const pad = 40, plotW = w - pad*2, plotH = h - pad*2;
+    const x0 = pad, y0 = pad;
+    const xmin = -5, xmax = 5, ymin = -1.2, ymax = 5.2;
+    const sx = v => x0 + (v - xmin)/(xmax-xmin)*plotW;
+    const sy = v => y0 + (ymax - v)/(ymax-ymin)*plotH;
+    // grid
+    ctx.strokeStyle = "#223055"; ctx.lineWidth = 1;
+    for(let v=Math.ceil(xmin); v<=xmax; v++){
+      ctx.beginPath(); ctx.moveTo(sx(v), y0); ctx.lineTo(sx(v), y0+plotH); ctx.stroke();
+    }
+    for(let v=-1; v<=5; v++){
+      ctx.beginPath(); ctx.moveTo(x0, sy(v)); ctx.lineTo(x0+plotW, sy(v)); ctx.stroke();
+    }
+    // axes
+    ctx.strokeStyle = "#44507a"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x0, sy(0)); ctx.lineTo(x0+plotW, sy(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx(0), y0); ctx.lineTo(sx(0), y0+plotH); ctx.stroke();
+
+    const curves = [
+      { f: sigmoid, c: "#5b8cff" },
+      { f: Math.tanh, c: "#00d4c8" },
+      { f: relu, c: "#3ddc97" },
+      { f: leaky, c: "#ff5f6d" }
+    ];
+    curves.forEach(({f,c}) => {
+      ctx.strokeStyle = c; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      let first = true;
+      for(let px=0; px<=plotW; px++){
+        const v = xmin + px/plotW*(xmax-xmin);
+        const fy = Math.max(-1.2, Math.min(5.2, f(v)));
+        if(first){ ctx.moveTo(sx(v), sy(fy)); first=false; } else ctx.lineTo(sx(v), sy(fy));
+      }
+      ctx.stroke();
+    });
+    ctx.fillStyle = "#8a94b8"; ctx.font = "11px Consolas"; ctx.textAlign = "left";
+    ctx.fillText("x", x0+plotW-10, sy(0)-6);
+    ctx.fillText("y", sx(0)+6, y0+12);
+  }
+
+  /* ---------- 3. 前向传播 ---------- */
+  const fwd = (function(){
+    const c = document.getElementById("forward");
+    const { ctx, w, h } = dpr(c);
+    return { c, ctx, w, h };
+  })();
+  const layers = [3, 4, 4, 2];
+  let fwdPhase = 0; // 0 idle, 1..len steps, then done
+  let fwdTimer = null;
+  function layerPos(i){
+    const { w, h } = fwd;
+    const total = layers.length;
+    const gap = w / (total + 1);
+    const x = gap * (i + 1);
+    const n = layers[i];
+    return { x, n, gap };
+  }
+  function nodePos(i, j){
+    const { h } = fwd;
+    const { x, n } = layerPos(i);
+    const gapY = h / (n + 1);
+    return { x, y: gapY * (j + 1) };
+  }
+  function drawForward(){
+    const { ctx, w, h } = fwd;
+    ctx.clearRect(0,0,w,h);
+    // edges
+    for(let i=0;i<layers.length-1;i++){
+      for(let a=0;a<layers[i];a++){
+        for(let b=0;b<layers[i+1];b++){
+          const p = nodePos(i,a), q = nodePos(i+1,b);
+          const active = fwdPhase > i;
+          ctx.strokeStyle = active ? "rgba(255,179,71,0.7)" : "rgba(68,80,122,0.4)";
+          ctx.lineWidth = active ? 1.8 : 1;
+          ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+        }
+      }
+    }
+    // nodes
+    for(let i=0;i<layers.length;i++){
+      for(let j=0;j<layers[i];j++){
+        const p = nodePos(i,j);
+        const active = fwdPhase >= i;
+        const isInput = i===0;
+        const isOut = i===layers.length-1;
+        const color = isInput ? "#5b8cff" : isOut ? "#3ddc97" : "#ffb347";
+        const glow = active ? 1 : 0.25;
+        ctx.beginPath(); ctx.arc(p.x, p.y, 13, 0, Math.PI*2);
+        ctx.fillStyle = active ? color : "#2a3557";
+        ctx.globalAlpha = glow; ctx.fill(); ctx.globalAlpha = 1;
+        ctx.strokeStyle = active ? color : "#44507a"; ctx.lineWidth = 1.5; ctx.stroke();
+        if(active){
+          ctx.fillStyle = "#081020"; ctx.font = "bold 11px Consolas";
+          ctx.textAlign="center"; ctx.textBaseline="middle";
+          ctx.fillText((Math.random()*0).toFixed(0)+"", p.x, p.y); // placeholder
+          ctx.fillText("●", p.x, p.y+1);
+        }
+      }
+    }
+    // layer labels
+    const names = ["输入层", "隐藏层 1", "隐藏层 2", "输出层"];
+    ctx.fillStyle = "#8a94b8"; ctx.font = "12px Microsoft YaHei";
+    ctx.textAlign = "center";
+    for(let i=0;i<layers.length;i++){
+      const { x } = layerPos(i);
+      ctx.fillText(names[i], x, h - 14);
+    }
+  }
+  function stepForward(){
+    if(fwdPhase < layers.length){
+      fwdPhase++;
+      drawForward();
+      if(fwdPhase >= layers.length){ stopForward(); return; }
+      fwdTimer = setTimeout(stepForward, 600);
+    }
+  }
+  function playForward(){ stopForward(); fwdPhase = 0; drawForward(); fwdTimer = setTimeout(stepForward, 400); }
+  function stopForward(){ if(fwdTimer){ clearTimeout(fwdTimer); fwdTimer = null; } }
+  function resetForward(){ stopForward(); fwdPhase = 0; drawForward(); }
+
+  document.getElementById("playForward").addEventListener("click", playForward);
+  document.getElementById("resetForward").addEventListener("click", resetForward);
+
+  /* ---------- 4. 损失函数 ---------- */
+  const lctx = (function(){
+    const c = document.getElementById("loss");
+    const { ctx, w, h } = dpr(c);
+    return { c, ctx, w, h };
+  })();
+  const lossRange = document.getElementById("lossRange");
+  const lossVal = document.getElementById("lossVal");
+  // L(theta) = (theta - 2)^2 * cos + something, simple parabola with noise
+  function L(t){ return (t-0.5)*(t-0.5)*8 + 0.4; }
+  function drawLoss(){
+    const { ctx, w, h } = lctx;
+    ctx.clearRect(0,0,w,h);
+    const pad = 40, plotW = w - pad*2, plotH = h - pad*2;
+    const x0 = pad, y0 = pad;
+    const tmin=0, tmax=1, ymin=0, ymax=3;
+    const sx = v => x0 + (v-tmin)/(tmax-tmin)*plotW;
+    const sy = v => y0 + (ymax-v)/(ymax-ymin)*plotH;
+    ctx.strokeStyle = "#223055";
+    ctx.beginPath(); ctx.moveTo(x0, sy(0)); ctx.lineTo(x0+plotW, sy(0)); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(sx(0), y0); ctx.lineTo(sx(0), y0+plotH); ctx.stroke();
+    // curve
+    ctx.strokeStyle = "#ff5f6d"; ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    for(let px=0; px<=plotW; px++){
+      const v = tmin + px/plotW*(tmax-tmin);
+      const lv = L(v);
+      if(px===0) ctx.moveTo(sx(v), sy(lv)); else ctx.lineTo(sx(v), sy(lv));
+    }
+    ctx.stroke();
+    // current point
+    const t = lossRange.value/100;
+    const lv = L(t);
+    ctx.beginPath(); ctx.arc(sx(t), sy(lv), 7, 0, Math.PI*2);
+    ctx.fillStyle = "#fff"; ctx.fill();
+    ctx.strokeStyle = "#ff5f6d"; ctx.lineWidth = 2; ctx.stroke();
+    lossVal.textContent = lv.toFixed(3);
+  }
+  lossRange.addEventListener("input", drawLoss);
+
+  /* ---------- 5. 梯度下降 ---------- */
+  const gctx = (function(){
+    const c = document.getElementById("grad");
+    const { ctx, w, h } = dpr(c);
+    return { c, ctx, w, h };
+  })();
+  const lrRange = document.getElementById("lrRange");
+  const lrVal = document.getElementById("lrVal");
+  lrRange.addEventListener("input", () => { lrVal.textContent = parseFloat(lrRange.value).toFixed(2); });
+  lrVal.textContent = parseFloat(lrRange.value).toFixed(2);
+
+  // 2D loss surface
+  function loss2(x, y){
+    return (x-0.3)*(x-0.3)*2 + (y+0.4)*(y+0.4)*3 + 0.5*Math.sin(x*6)*0.3 + 0.3*Math.cos(y*5)*0.3;
+  }
+  let gradPos = { x: 1.4, y: 1.4 };
+  let gradTimer = null;
+  const gradTrail = [];
+  function drawGrad(){
+    const { ctx, w, h } = gctx;
+    ctx.clearRect(0,0,w,h);
+    const pad = 30, plotW = w - pad*2, plotH = h - pad*2;
+    const x0 = pad, y0 = pad;
+    const xmin=-2, xmax=2, ymin=-2, ymax=2;
+    const sx = v => x0 + (v-xmin)/(xmax-xmin)*plotW;
+    const sy = v => y0 + (ymax-v)/(ymax-ymin)*plotH;
+    // heatmap via contours
+    const cells = 60;
+    const minV=-1, maxV=10;
+    const img = ctx.createImageData(cells, cells);
+    for(let iy=0;iy<cells;iy++){
+      for(let ix=0;ix<cells;ix++){
+        const v = loss2(xmin+(ix+0.5)/cells*(xmax-xmin), ymin+(iy+0.5)/cells*(ymax-ymin));
+        const n = (v-minV)/(maxV-minV);
+        const idx = (iy*cells+ix)*4;
+        img.data[idx] = Math.round(91 + n*40);
+        img.data[idx+1] = Math.round(140 - n*60);
+        img.data[idx+2] = Math.round(255 - n*180);
+        img.data[idx+3] = 200;
+      }
+    }
+    const off = document.createElement("canvas");
+    off.width = cells; off.height = cells;
+    off.getContext("2d").putImageData(img,0,0);
+    ctx.imageSmoothingEnabled = true;
+    ctx.drawImage(off, x0, y0, plotW, plotH);
+    // trail
+    if(gradTrail.length > 1){
+      ctx.strokeStyle = "rgba(255,95,109,0.9)"; ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      gradTrail.forEach((p,i)=>{ if(i===0) ctx.moveTo(sx(p.x), sy(p.y)); else ctx.lineTo(sx(p.x), sy(p.y)); });
+      ctx.stroke();
+    }
+    // current position
+    ctx.beginPath(); ctx.arc(sx(gradPos.x), sy(gradPos.y), 8, 0, Math.PI*2);
+    ctx.fillStyle = "#ffb347"; ctx.fill();
+    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+  }
+  function stepGrad(){
+    const lr = parseFloat(lrRange.value);
+    // numerical gradient
+    const eps = 1e-4;
+    const gx = (loss2(gradPos.x+eps, gradPos.y) - loss2(gradPos.x-eps, gradPos.y))/(2*eps);
+    const gy = (loss2(gradPos.x, gradPos.y+eps) - loss2(gradPos.x, gradPos.y-eps))/(2*eps);
+    gradTrail.push({ x: gradPos.x, y: gradPos.y });
+    gradPos.x -= lr * gx * 0.08;
+    gradPos.y -= lr * gy * 0.08;
+    drawGrad();
+    const mag = Math.hypot(gx, gy);
+    if(mag > 0.08 && gradTrail.length < 120){
+      gradTimer = setTimeout(stepGrad, 40);
+    } else {
+      stopGrad();
+    }
+  }
+  function playGrad(){ stopGrad(); gradPos = {x:1.4, y:1.4}; gradTrail.length = 0; drawGrad(); gradTimer = setTimeout(stepGrad, 40); }
+  function stopGrad(){ if(gradTimer){ clearTimeout(gradTimer); gradTimer = null; } }
+  function resetGrad(){ stopGrad(); gradPos = {x:1.4, y:1.4}; gradTrail.length = 0; drawGrad(); }
+  document.getElementById("playGrad").addEventListener("click", playGrad);
+  document.getElementById("resetGrad").addEventListener("click", resetGrad);
+
+  /* ---------- main loop ---------- */
+  function loop(){
+    drawNeuron();
+    requestAnimationFrame(loop);
+  }
+
+  function init(){
+    drawActiv();
+    drawForward();
+    drawLoss();
+    drawGrad();
+    loop();
+  }
+
+  window.addEventListener("resize", () => {
+    // re-setup canvases on resize (simplified)
+    [nctx, actx, fwd, lctx, gctx].forEach(o => { const r = window.devicePixelRatio||1; const w = o.c.clientWidth||600; o.w = w; o.ctx.setTransform(r,0,0,r,0,0); o.c.width=w*r; o.c.height=o.c.height*r; });
+    drawActiv(); drawForward(); drawLoss(); drawGrad();
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
